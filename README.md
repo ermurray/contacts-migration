@@ -8,6 +8,11 @@ It is **file-based and offline**: you do the export/import on your iPhone and in
 macOS **Contacts.app**, and this tool handles the backup, verification, and
 deletion. No passwords, no servers, nothing leaves your Mac.
 
+There are two front-ends sharing the same logic:
+- a **command-line tool** (`migrate_contacts.py`, Python) — documented below;
+- a **cross-platform desktop GUI** (Electron, in [`gui/`](gui/)) for macOS,
+  Windows, and Linux — see [gui/README.md](gui/README.md).
+
 > Why file-based? The old Exchange server no longer exists, so there's no live
 > account to sync. And macOS Contacts scripting can't pick *which account* a
 > contact lives in — so we move data as vCard files and identify the old copies

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self'; script-src 'self'" />
+  <title>Contacts Migration</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Contacts Migration</h1>
+    <p class="sub">Move contacts from an old account to a new one — backup, verify, then delete the old copies. <span id="platform" class="pill"></span></p>
+  </header>
+
+  <main>
+    <!-- Step 1 -->
+    <section class="step">
+      <h2><span class="num">1</span> Old contacts export</h2>
+      <p>Export the old contacts to a <code>.vcf</code> (iPhone: share contacts; or Contacts.app ▸ File ▸ Export ▸ vCard), then choose it here.</p>
+      <div class="row">
+        <button id="pickOld">Choose old .vcf…</button>
+        <span id="oldPath" class="path">No file chosen</span>
+      </div>
+    </section>
+
+    <!-- Step 2 -->
+    <section class="step">
+      <h2><span class="num">2</span> Back up</h2>
+      <p>Writes a human-readable CSV and a lossless copy of your export.</p>
+      <button id="backup" disabled>Create backup</button>
+    </section>
+
+    <!-- Step 3 (mac only) -->
+    <section class="step" id="snapSection">
+      <h2><span class="num">3</span> Snapshot current contacts <span class="mac-only pill">macOS</span></h2>
+      <p>Records what's already on this Mac so the old copies can be removed precisely later. May ask for Automation permission.</p>
+      <button id="snapshot" disabled>Snapshot Contacts.app</button>
+    </section>
+
+    <!-- Step 4 -->
+    <section class="step">
+      <h2><span class="num">4</span> Import into the new account</h2>
+      <p>System Settings ▸ Contacts ▸ <b>Default Account = new iCloud</b>, then Contacts.app ▸ File ▸ Import your old <code>.vcf</code>. Wait for it to sync.</p>
+    </section>
+
+    <!-- Step 5 -->
+    <section class="step">
+      <h2><span class="num">5</span> Verify</h2>
+      <p>Export the <b>new</b> account to a fresh <code>.vcf</code> and choose it. We confirm every old contact is present.</p>
+      <div class="row">
+        <button id="pickNew">Choose new export .vcf…</button>
+        <span id="newPath" class="path">No file chosen</span>
+      </div>
+      <button id="verify" disabled>Verify migration</button>
+      <div id="verifyResult" class="result hidden"></div>
+    </section>
+
+    <!-- Step 6 -->
+    <section class="step">
+      <h2><span class="num">6</span> Delete old copies</h2>
+      <p>Locked until you have a backup and a passing verification.</p>
+      <button id="delete" class="danger" disabled>Delete old copies…</button>
+      <div id="deleteResult" class="result hidden"></div>
+    </section>
+  </main>
+
+  <footer>
+    <div id="log" class="log" aria-live="polite"></div>
+  </footer>
+
+  <!-- Confirm modal -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-box">
+      <h3 id="modalTitle">Confirm deletion</h3>
+      <div id="modalBody"></div>
+      <label class="confirm-line">Type <b>delete</b> to confirm:
+        <input id="confirmInput" type="text" autocomplete="off" />
+      </label>
+      <div class="modal-actions">
+        <button id="modalCancel">Cancel</button>
+        <button id="modalOk" class="danger" disabled>Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

@@ -10,7 +10,16 @@ backup/
 *.abbu
 !sample/sample_*.vcf
 
+# Allow the GUI's package manifests (the *.json rule above is for snapshot data)
+!gui/package.json
+!gui/package-lock.json
+
 # Python
 .venv/
 __pycache__/
 *.pyc
+
+# Node / Electron
+node_modules/
+gui/dist/
+gui/out/

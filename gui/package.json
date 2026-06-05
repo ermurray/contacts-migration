@@ -1,0 +1,34 @@
+{
+  "name": "contacts-migration-gui",
+  "productName": "Contacts Migration",
+  "version": "1.0.0",
+  "description": "Cross-platform GUI to migrate iCloud contacts between accounts with verified backup and gated deletion",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node test/selftest.js",
+    "dist": "electron-builder"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^42.3.3"
+  },
+  "build": {
+    "appId": "tech.symbi.contacts-migration",
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*"
+    ],
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.utilities"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}
