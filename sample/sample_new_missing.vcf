@@ -1,0 +1,17 @@
+BEGIN:VCARD
+VERSION:3.0
+FN:Ada Lovelace
+N:Lovelace;Ada;;;
+ORG:Analytical Engines
+TITLE:Mathematician
+TEL;TYPE=CELL:+1 (415) 555-0101
+EMAIL;TYPE=WORK:ada@example.com
+NOTE:First programmer
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Alan Turing
+N:Turing;Alan;;;
+TEL;TYPE=HOME:415-555-0102
+EMAIL:alan@example.com
+END:VCARD

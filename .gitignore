@@ -1,0 +1,11 @@
+# Never commit personal contact data
+backup/
+*.vcf
+*.csv
+*.json
+!sample/*.vcf
+
+# Python
+.venv/
+__pycache__/
+*.pyc
