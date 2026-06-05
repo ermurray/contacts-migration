@@ -27,6 +27,9 @@ cd contacts-migration
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+
+# One-time: enable the guard that blocks committing real contact data
+git config core.hooksPath hooks
 ```
 
 ## Quick start — the guided wizard
@@ -103,8 +106,13 @@ the typed confirmation), `--report PATH` / `--snapshot PATH` (pin specific files
 - Nothing is deleted until you have a backup **and** a passing verification.
 - Deletion targets only the contacts that existed **before** your import, so
   re-running import/verify is safe.
-- `backup/` and all `*.vcf` / `*.csv` files are git-ignored so personal contact
-  data is never committed.
+- `backup/` and all contact-bearing files (`*.vcf`, `*.csv`, `*.json`, `*.ics`,
+  `*.vcards`, `*.abbu`) are git-ignored so personal contact data is never
+  committed. Only the synthetic `sample/sample_*.vcf` fixtures are tracked.
+- A **pre-commit hook** (`hooks/pre-commit`, enabled via
+  `git config core.hooksPath hooks`) is a hard backstop: it blocks any commit
+  that includes a contact-data file type, or any file whose contents contain
+  `BEGIN:VCARD`/`BEGIN:VCALENDAR`, unless it is a `sample/sample_*.vcf` fixture.
 
 ## Try it without real data
 

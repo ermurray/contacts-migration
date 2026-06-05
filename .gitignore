@@ -1,9 +1,14 @@
-# Never commit personal contact data
+# Never commit personal contact data.
+# All contact-bearing formats are ignored everywhere; only the curated,
+# synthetic sample/sample_*.vcf fixtures are allowed back in.
 backup/
 *.vcf
 *.csv
 *.json
-!sample/*.vcf
+*.vcards
+*.ics
+*.abbu
+!sample/sample_*.vcf
 
 # Python
 .venv/

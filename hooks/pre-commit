@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+#
+# Guard: never let real contact data into the repository.
+#
+# Blocks the commit if any staged file is a contact-bearing type, or if any
+# staged content contains vCard/vCalendar markers — UNLESS it is one of the
+# curated synthetic fixtures under sample/sample_*.vcf.
+#
+# Enabled via:  git config core.hooksPath hooks   (run setup once after clone)
+#
+set -euo pipefail
+
+# Files allowed to contain contact-shaped fixtures (synthetic only).
+allowed_re='^sample/sample_.*\.vcf$'
+
+# File extensions that can carry personal contact data.
+blocked_ext_re='\.(vcf|vcards|csv|ics|abbu)$'
+
+blocked=()
+
+# Staged files (added/copied/modified/renamed), NUL-safe.
+while IFS= read -r -d '' f; do
+  # Skip the allowed synthetic fixtures.
+  if [[ "$f" =~ $allowed_re ]]; then
+    continue
+  fi
+
+  # 1) Block by contact-bearing extension.
+  if [[ "$f" =~ $blocked_ext_re ]]; then
+    blocked+=("$f  (contact-data file type)")
+    continue
+  fi
+
+  # 2) Block by content: any vCard/vCalendar payload in the staged blob.
+  if git show ":$f" 2>/dev/null | LC_ALL=C grep -qiE '^BEGIN:(VCARD|VCALENDAR)'; then
+    blocked+=("$f  (contains vCard/vCalendar data)")
+  fi
+done < <(git diff --cached --name-only -z --diff-filter=ACMR)
+
+if (( ${#blocked[@]} > 0 )); then
+  echo "" >&2
+  echo "COMMIT BLOCKED: personal contact data must never be committed." >&2
+  echo "Offending staged file(s):" >&2
+  for b in "${blocked[@]}"; do
+    echo "  - $b" >&2
+  done
+  echo "" >&2
+  echo "These belong in backup/ (git-ignored), not in the repo." >&2
+  echo "If this is genuinely synthetic test data, place it at sample/sample_*.vcf." >&2
+  echo "To bypass intentionally (discouraged): git commit --no-verify" >&2
+  exit 1
+fi
+
+exit 0
