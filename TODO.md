@@ -9,30 +9,22 @@ Status of remaining work for the CLI + the cross-platform Electron GUI.
 - [x] **Post-delete** guidance card: sync phone from iCloud, optional
       "desktop overwrites phone" flow, and back-up-every-list warnings.
 
-## High priority — features still to build
-- [ ] **Combine multiple export files** (new sub-step between "Choose file" and
-      "Select"). Repeatable: add several `.vcf` exports (e.g. one per phone
-      list/account) and merge them into one working set before selection.
-      - Concatenate parsed contacts from N files; show running total.
-      - De-dupe identical entries on merge (feeds the dedupe step below).
-- [ ] **Smart dedupe / merge** (before selection):
-      - Detect duplicate groups (same normalized name + shared phone/email; also
-        fuzzy name match as a weaker signal).
-      - Review UI: show each candidate group side-by-side; let the user
-        **Merge** (union of fields, pick a primary), **Keep separate**, or
-        **Ignore/soft-delete** one copy.
-      - Merged/ignored contacts are greyed out / flagged in the Select list and
-        excluded from the import file accordingly.
-      - Merge logic: union phones/emails/addresses (dedupe values), prefer
-        non-empty org/title/note; keep a record of what was merged.
+## High priority — features
+- [x] **Combine multiple export files** (Select sub-step 1). Repeatable; merges
+      several `.vcf` exports into one working set with a running total.
+- [x] **Smart dedupe / merge** (Select sub-step 2): auto-suggested duplicate
+      groups (transitive grouping), per-group **Merge** (union phones/emails/
+      addresses, most-complete name/org) or **Keep separate**, plus
+      **Ignore/Restore** (soft-delete, greyed out) in the selection list.
 
 ## Packaging / distribution
-- [ ] **x64 + universal macOS** build (current dmg is arm64 only — won't run on
-      Intel Macs). Add `--mac --x64` / `--universal` targets.
-- [ ] **x64 Linux** AppImage (current is arm64).
-- [ ] **Windows** installer (`.exe`/NSIS) — needs Wine locally, or build via CI.
-- [ ] **GitHub Actions release workflow**: build mac (dmg, x64+arm64), Windows
-      (exe), Linux (AppImage) on each tag; attach to a GitHub Release.
+- [x] **x64 macOS** dmg (built locally; `mac` target now `arch: [arm64, x64]`).
+- [x] **GitHub Actions release workflow** (`.github/workflows/release.yml`):
+      builds macOS (arm64+x64 dmg), Windows (exe), Linux (AppImage) on each `v*`
+      tag and attaches to a GitHub Release; manual run uploads artifacts.
+- [ ] **First tagged release** — push a `v1.0.0` tag to produce the full matrix
+      (Windows/Linux come from CI, not buildable locally on macOS).
+- [ ] **Universal macOS** dmg (single Intel+Apple-Silicon binary) — optional.
 - [ ] **App icon** (`.icns` / `.ico` / png) — currently the default Electron icon.
 - [ ] **Code signing + notarization** (macOS Developer ID; Windows cert) so users
       don't hit Gatekeeper / SmartScreen warnings. Needs Apple Developer account.

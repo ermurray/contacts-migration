@@ -18,11 +18,25 @@ npm start
 ## Build installers
 
 ```bash
-npm run dist   # uses electron-builder -> dmg (mac) / nsis (win) / AppImage (linux)
+npm run dist        # current OS
+npm run dist:mac    # dmg, arm64 + x64
+npm run dist:win    # nsis .exe (needs Windows or Wine)
+npm run dist:linux  # AppImage
 ```
 
-> `electron-builder` is invoked on demand; add it as a dev dependency
-> (`npm i -D electron-builder`) on the machine where you cut releases.
+Output lands in `gui/dist/`. macOS builds are unsigned/ad-hoc (`identity: null`),
+so other Macs will show a Gatekeeper warning — right‑click ▸ Open, or
+`xattr -dr com.apple.quarantine "/Applications/Contacts Migration.app"`.
+
+### Cross-platform releases (CI)
+
+`.github/workflows/release.yml` builds **macOS (arm64+x64 dmg)**, **Windows
+(exe)**, and **Linux (AppImage)** natively:
+
+- Push a tag `vX.Y.Z` → builds all three and attaches them to a GitHub Release.
+- Run the workflow manually (workflow_dispatch) → uploads them as artifacts.
+
+Windows and Linux installers can't be built from macOS locally — use the CI.
 
 ## What it does, step by step
 
