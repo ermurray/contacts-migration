@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Contacts Migration — Download</title>
+  <meta name="description" content="Move iCloud contacts from an old account to a new one — backup, de-duplicate, verify, then delete the old copies. Offline. macOS, Windows, Linux." />
+  <style>
+    :root{
+      --bg:#f6f7f9;--bg2:#fff;--card:#fff;--card2:#f2f3f5;--text:#1e1f22;
+      --muted:#5c5e66;--border:#e4e6ea;--accent:#5865f2;--accent2:#4752c4;
+      --ok:#1a9c52;--shadow:0 1px 2px rgba(0,0,0,.06),0 10px 30px rgba(0,0,0,.06);
+    }
+    @media (prefers-color-scheme:dark){:root{
+      --bg:#18191c;--bg2:#232428;--card:#2b2d31;--card2:#313338;--text:#ececee;
+      --muted:#a8abb3;--border:#3a3c42;--accent:#5865f2;--accent2:#6b75ff;
+      --ok:#2dc771;--shadow:0 1px 2px rgba(0,0,0,.3),0 12px 36px rgba(0,0,0,.4);
+    }}
+    *{box-sizing:border-box}
+    body{margin:0;font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+      color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+    .wrap{max-width:760px;margin:0 auto;padding:48px 22px 64px}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px}
+    .brand .mark{color:var(--accent)}
+    h1{font-size:34px;line-height:1.15;letter-spacing:-.5px;margin:26px 0 10px}
+    .lede{color:var(--muted);font-size:17px;margin:0 0 26px;max-width:60ch}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;
+      padding:22px;box-shadow:var(--shadow);margin:18px 0}
+    .primary-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+    a.btn{display:inline-flex;align-items:center;gap:8px;text-decoration:none;font-weight:700;
+      padding:12px 20px;border-radius:11px;border:1px solid var(--accent);
+      background:var(--accent);color:#fff}
+    a.btn:hover{background:var(--accent2);border-color:var(--accent2)}
+    a.btn.ghost{background:transparent;color:var(--text);border-color:var(--border)}
+    .ver{color:var(--muted);font-size:13px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+    @media(max-width:560px){.grid{grid-template-columns:1fr}}
+    .dl{display:flex;align-items:center;justify-content:space-between;gap:10px;
+      padding:12px 14px;border:1px solid var(--border);border-radius:11px;background:var(--card2);
+      text-decoration:none;color:var(--text)}
+    .dl:hover{border-color:var(--accent)}
+    .dl .os{font-weight:700}.dl .sub{color:var(--muted);font-size:12.5px}
+    .dl.rec{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent)}
+    .pill{font-size:11px;padding:1px 8px;border-radius:999px;background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
+    ul.feat{margin:8px 0 0;padding-left:18px;color:var(--muted)}
+    ul.feat li{margin:4px 0}
+    .note{font-size:13px;color:var(--muted);background:var(--card2);border:1px dashed var(--border);
+      border-radius:10px;padding:10px 12px;margin-top:14px}
+    footer{color:var(--muted);font-size:13px;margin-top:28px;display:flex;gap:16px;flex-wrap:wrap}
+    footer a{color:var(--accent);text-decoration:none}
+    code{background:var(--card2);padding:1px 6px;border-radius:5px;font-size:13px}
+    .hidden{display:none}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand"><span class="mark">◆</span> Contacts Migration</div>
+
+    <h1>Move your contacts to a new account — safely.</h1>
+    <p class="lede">Back up, combine multiple exports, review &amp; merge duplicates,
+      verify everything arrived, then delete the old copies. Fully offline —
+      nothing leaves your computer. macOS, Windows &amp; Linux.</p>
+
+    <div class="card">
+      <div class="primary-row">
+        <a id="primaryBtn" class="btn" href="#downloads">Download</a>
+        <span id="verLine" class="ver">Looking up the latest release…</span>
+      </div>
+      <div id="downloads" class="grid"></div>
+      <div id="noRelease" class="note hidden"></div>
+      <div class="note">macOS builds aren't notarized yet, so on first launch
+        <b>right‑click the app ▸ Open</b> (or run
+        <code>xattr -dr com.apple.quarantine "/Applications/Contacts Migration.app"</code>).
+        A signed Mac App Store version is planned.</div>
+    </div>
+
+    <div class="card">
+      <b>What it does</b>
+      <ul class="feat">
+        <li>Combine one or more exported <code>.vcf</code> files into one set.</li>
+        <li>Auto‑suggested <b>duplicate detection</b> with an interactive merge —
+          inspect each contact, exclude members, and edit the merged result.</li>
+        <li>Human‑readable <b>backup</b> + verification before anything is deleted.</li>
+        <li>Guided, gated <b>delete</b> of the old copies (macOS automates it;
+          Windows/Linux show manual steps).</li>
+      </ul>
+    </div>
+
+    <footer>
+      <a href="https://github.com/ermurray/contacts-migration">Source on GitHub</a>
+      <a href="https://github.com/ermurray/contacts-migration/releases">All releases</a>
+      <span>App Store version coming later.</span>
+    </footer>
+  </div>
+
+  <script>
+    var REPO = "ermurray/contacts-migration";
+
+    function detectOS(){
+      var ua = (navigator.userAgent || "") + " " + (navigator.platform || "");
+      if (/Win/i.test(ua)) return "win";
+      if (/Mac/i.test(ua)) return "mac";
+      if (/Linux|X11/i.test(ua)) return "linux";
+      return "other";
+    }
+
+    // Classify a release asset by filename -> {os, label, sub, rank}
+    function classify(name){
+      var n = name.toLowerCase();
+      if (n.endsWith(".dmg")) {
+        return /arm64/.test(n)
+          ? {os:"mac", label:"macOS", sub:"Apple Silicon (M‑series)"}
+          : {os:"mac", label:"macOS", sub:"Intel"};
+      }
+      if (n.endsWith(".exe")) return {os:"win", label:"Windows", sub:"Installer (.exe)"};
+      if (n.endsWith(".appimage")) return {os:"linux", label:"Linux",
+        sub:(/arm64|aarch64/.test(n) ? "ARM64 (.AppImage)" : "x86_64 (.AppImage)")};
+      return null; // skip blockmaps, zips, etc.
+    }
+
+    function bytes(b){ if(!b) return ""; var m=b/1048576; return m>=1?m.toFixed(0)+" MB":(b/1024).toFixed(0)+" KB"; }
+
+    function render(rel){
+      var os = detectOS();
+      var assets = (rel.assets||[]).map(function(a){
+        var c = classify(a.name); return c ? Object.assign(c,{url:a.browser_download_url,size:a.size}) : null;
+      }).filter(Boolean);
+
+      // order: current OS first, then the rest
+      var order = {mac:0, win:1, linux:2};
+      assets.sort(function(a,b){
+        var ra = (a.os===os?-1:order[a.os]), rb = (b.os===os?-1:order[b.os]);
+        return ra - rb;
+      });
+
+      var grid = document.getElementById("downloads");
+      grid.innerHTML = "";
+      var firstForOS = null;
+      assets.forEach(function(a){
+        var rec = (a.os===os && !firstForOS);
+        if (rec) firstForOS = a;
+        var el = document.createElement("a");
+        el.className = "dl" + (rec ? " rec" : "");
+        el.href = a.url;
+        el.innerHTML =
+          '<span><span class="os">'+a.label+'</span> '+(rec?'<span class="pill">recommended</span>':'')+
+          '<div class="sub">'+a.sub+'</div></span>'+
+          '<span class="sub">'+bytes(a.size)+' ↓</span>';
+        grid.appendChild(el);
+      });
+
+      var ver = rel.tag_name || rel.name || "";
+      var when = rel.published_at ? new Date(rel.published_at).toLocaleDateString() : "";
+      document.getElementById("verLine").textContent =
+        (ver ? ver : "Latest") + (when ? " · " + when : "");
+
+      var primary = document.getElementById("primaryBtn");
+      if (firstForOS) {
+        primary.href = firstForOS.url;
+        primary.textContent = "Download for " + firstForOS.label;
+      } else {
+        primary.href = "#downloads";
+        primary.textContent = "See downloads";
+      }
+    }
+
+    function noRelease(){
+      document.getElementById("verLine").textContent = "";
+      var box = document.getElementById("noRelease");
+      box.classList.remove("hidden");
+      box.innerHTML = 'No published release yet. Builds appear here once a ' +
+        '<code>v*</code> tag is pushed — meanwhile see the ' +
+        '<a href="https://github.com/'+REPO+'/releases">Releases page</a>.';
+      var primary = document.getElementById("primaryBtn");
+      primary.href = "https://github.com/"+REPO+"/releases";
+      primary.textContent = "Go to Releases";
+    }
+
+    fetch("https://api.github.com/repos/"+REPO+"/releases/latest", {headers:{Accept:"application/vnd.github+json"}})
+      .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function(rel){ (rel.assets && rel.assets.length) ? render(rel) : noRelease(); })
+      .catch(noRelease);
+  </script>
+</body>
+</html>

@@ -36,7 +36,11 @@ duplicate review/merge, verification, and a gated delete. Full details:
 
 ### Download (no build needed)
 
-Grab the latest installer from the repo's **Releases** (built by CI):
+**Download page:** https://ermurray.github.io/contacts-migration/ — auto-links to
+the latest installer for your OS. (Served from [`docs/`](docs/) via GitHub Pages;
+enable it once under **Settings ▸ Pages ▸ Source: `main` / `/docs`**.)
+
+Or grab a build directly from the repo's **Releases** (produced by CI):
 `.dmg` (macOS, arm64 or x64) · `.exe` (Windows) · `.AppImage` (Linux).
 
 > macOS builds are unsigned — on first launch **right‑click the app ▸ Open**, or
