@@ -25,6 +25,7 @@
   "build": {
     "appId": "tech.symbi.contacts-migration",
     "directories": { "output": "dist" },
+    "afterPack": "./build/afterPack.js",
     "files": [
       "main.js",
       "preload.js",
