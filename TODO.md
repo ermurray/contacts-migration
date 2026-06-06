@@ -51,3 +51,8 @@ Status of remaining work for the CLI + the cross-platform Electron GUI.
 ## Housekeeping
 - [ ] Commit + push packaging config (electron-builder) and these GUI updates.
 - [ ] Update top-level README + `gui/README.md` for the new steps and packaging.
+- [x] **Update CI actions off Node 20** (deprecated; forced to Node 24 on
+      2026-06-16, Node 20 removed 2026-09-16). Bumped in release.yml:
+      actions/checkout@v6, actions/setup-node@v6, actions/upload-artifact@v7,
+      softprops/action-gh-release@v3. (Build still uses `node-version: 20` —
+      that's the toolchain, separate from the action runtime; bump later.)
