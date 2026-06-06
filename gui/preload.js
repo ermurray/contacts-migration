@@ -7,7 +7,7 @@ contextBridge.exposeInMainWorld('api', {
   pickVcf: (title) => ipcRenderer.invoke('pick-vcf', title),
   loadFiles: (paths) => ipcRenderer.invoke('load-files', paths),
   findDuplicates: (paths) => ipcRenderer.invoke('find-duplicates', paths),
-  writeImportRaw: (rawList) => ipcRenderer.invoke('write-import-raw', rawList),
+  writeImport: (items) => ipcRenderer.invoke('write-import', items),
   backupFiles: (paths) => ipcRenderer.invoke('backup-files', paths),
   snapshot: (vcfPath) => ipcRenderer.invoke('snapshot', vcfPath),
   verify: (oldPath, newPath) => ipcRenderer.invoke('verify', oldPath, newPath),

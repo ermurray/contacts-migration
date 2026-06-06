@@ -99,38 +99,36 @@ ipcMain.handle('find-duplicates', async (e, paths) => {
   const { groups } = groupDuplicates(all.map((r) => r.contact));
   progress(e, `Found ${groups.length} possible duplicate group(s).`);
   return {
-    groups: groups.map((idxs, gid) => {
-      const members = idxs.map((i) => all[i]);
-      const merged = mergeContacts(members.map((m) => m.contact));
-      return {
-        id: gid,
-        memberUids: members.map((m) => m.uid),
-        members: members.map((m) => ({
-          uid: m.uid,
-          fullName: m.contact.fullName,
-          emails: m.contact.emails.map((x) => x.value),
-          phones: m.contact.phones.map((x) => x.value),
-        })),
-        merged: {
-          fullName: merged.fullName,
-          org: merged.org,
-          emails: merged.emails.map((x) => x.value),
-          phones: merged.phones.map((x) => x.value),
-          raw: serialize(merged),
-        },
-      };
-    }),
+    groups: groups.map((idxs, gid) => ({
+      id: gid,
+      members: idxs.map((i) => {
+        const c = all[i].contact;
+        return {
+          uid: all[i].uid,
+          fullName: c.fullName,
+          org: c.org,
+          title: c.title,
+          phones: c.phones,       // [{label, value}]
+          emails: c.emails,       // [{label, value}]
+          addresses: c.addresses || [],
+          birthday: c.birthday,
+          note: c.note,
+        };
+      }),
+    })),
   };
 });
 
-// Write the chosen vCards (originals' raw or merged vCards) to an import file.
-ipcMain.handle('write-import-raw', async (e, rawList) => {
-  if (!rawList || !rawList.length) throw new Error('No contacts selected.');
-  const body = rawList.map((r) => String(r).trim()).join('\r\n') + '\n';
+// Write the chosen contacts to an import file. Each item is either an original
+// (raw vCard string) or an edited/merged contact (structured -> serialized).
+ipcMain.handle('write-import', async (e, items) => {
+  if (!items || !items.length) throw new Error('No contacts selected.');
+  const raws = items.map((it) => (it.raw != null ? String(it.raw).trim() : serialize(it.contact).trim()));
+  const body = raws.join('\r\n') + '\n';
   const outPath = path.join(backupDir(), `to_import_${Date.now()}.vcf`);
   fs.writeFileSync(outPath, body, 'utf8');
-  progress(e, `Prepared ${rawList.length} contacts for import.`);
-  return { importPath: outPath, count: rawList.length };
+  progress(e, `Prepared ${items.length} contacts for import.`);
+  return { importPath: outPath, count: items.length };
 });
 
 // Back up ALL contacts across the chosen files (CSV + combined vcf).

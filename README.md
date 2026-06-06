@@ -18,6 +18,58 @@ There are two front-ends sharing the same logic:
 > contact lives in — so we move data as vCard files and identify the old copies
 > by snapshotting your contacts **before** the import.
 
+## Desktop GUI (macOS / Windows / Linux)
+
+A cross-platform Electron app that walks you through the whole migration as a
+guided stepper — **Prepare → Select → Migrate → Finish** — with backup,
+duplicate review/merge, verification, and a gated delete. Full details:
+[gui/README.md](gui/README.md).
+
+**What the GUI adds over the CLI**
+- Combine **multiple** export files (e.g. one per phone list/account).
+- **Auto-suggested duplicate detection** with per-group review: merge (union of
+  fields — editable, and you can exclude members) or keep separate, plus
+  ignore/soft-delete. Nameless contacts are matched by company/address/email.
+- A live **progress bar** while reading Contacts, an **import confirmation**
+  gate, and **post-delete** phone-sync guidance with backup warnings.
+- Theme follows your OS light/dark preference.
+
+### Download (no build needed)
+
+Grab the latest installer from the repo's **Releases** (built by CI):
+`.dmg` (macOS, arm64 or x64) · `.exe` (Windows) · `.AppImage` (Linux).
+
+> macOS builds are unsigned — on first launch **right‑click the app ▸ Open**, or
+> `xattr -dr com.apple.quarantine "/Applications/Contacts Migration.app"`.
+
+### Run from source
+
+```bash
+cd gui
+npm install
+npm start
+```
+
+### Build installers
+
+```bash
+cd gui
+npm run dist:mac     # .dmg (arm64 + x64)
+npm run dist:win     # .exe  (run on Windows)
+npm run dist:linux   # .AppImage (run on Linux)
+```
+
+Output lands in `gui/dist/`. Windows/Linux can't be built from macOS locally —
+push a `vX.Y.Z` tag to run the **GitHub Actions release workflow**
+(`.github/workflows/release.yml`), which builds all three and attaches them to a
+GitHub Release.
+
+---
+
+## Command-line tool (Python)
+
+The rest of this document covers the Python CLI (`migrate_contacts.py`).
+
 ## Requirements
 
 - macOS (uses the built-in `Contacts.app` and `osascript`)

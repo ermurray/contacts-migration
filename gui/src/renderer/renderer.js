@@ -4,8 +4,9 @@
 const state = {
   files: [],          // added .vcf paths
   records: [],        // combined contacts {uid, fullName, org, emails, phones, raw}
-  dupGroups: [],      // duplicate groups from main
-  decisions: {},      // groupId -> 'merge' | 'separate'
+  recordByUid: new Map(),
+  groups: [],         // duplicate groups (rich members) from main
+  gstate: {},         // groupId -> { decision, included:Set(uid), merged }
   ignored: new Set(), // itemIds the user ignored (soft-deleted)
   selected: new Set(),// itemIds selected to migrate
   items: [],          // resolved selectable items (merged + singles)
@@ -138,6 +139,12 @@ async function run(btnId, outId, fn) {
 }
 
 function refresh() {
+  // Always-available actions (re-enabled after a run() disables them, even if
+  // the file dialog was cancelled).
+  $('addFile').disabled = false;
+  $('pickNew').disabled = false;
+  $('confirmImport').disabled = !state.importPath;
+  // Gated actions.
   $('useSelection').disabled = !(state.items.length && state.selected.size > 0);
   $('backup').disabled = !state.files.length;
   $('snapshot').disabled = !(state.isMac && state.importPath);
@@ -147,25 +154,55 @@ function refresh() {
 }
 
 // ---- combine / dedupe / select data model ----
+function invalidateDownstream() {
+  // changing the merge plan/selection invalidates the prepared import + verify
+  state.importPath = null; state.imported = false; state.verifyPassed = false;
+}
+
+// Local union-merge mirroring core/dedupe.mergeContacts (renderer can't require it).
+function mergeLocal(members) {
+  const m = { fullName: '', org: '', title: '', phones: [], emails: [], addresses: [], birthday: '', note: '' };
+  const sp = new Set(), se = new Set(), sa = new Set();
+  for (const c of members) {
+    if ((c.fullName || '').length > m.fullName.length) m.fullName = c.fullName || m.fullName;
+    if (!m.org && c.org) m.org = c.org;
+    if (!m.title && c.title) m.title = c.title;
+    if (!m.birthday && c.birthday) m.birthday = c.birthday;
+    if (c.note && !m.note.includes(c.note)) m.note = [m.note, c.note].filter(Boolean).join(' / ');
+    for (const p of c.phones || []) {
+      const k = (p.value || '').replace(/\D/g, '').slice(-10);
+      if (!k) { m.phones.push({ label: p.label || 'other', value: p.value }); continue; }
+      if (!sp.has(k)) { sp.add(k); m.phones.push({ label: p.label || 'other', value: p.value }); }
+    }
+    for (const e of c.emails || []) {
+      const k = (e.value || '').trim().toLowerCase();
+      if (k && !se.has(k)) { se.add(k); m.emails.push({ label: e.label || 'other', value: e.value }); }
+    }
+    for (const a of c.addresses || []) { if (!sa.has(a)) { sa.add(a); m.addresses.push(a); } }
+  }
+  return m;
+}
+
 function computeItems() {
   const absorbed = new Set();
   const items = [];
-  for (const g of state.dupGroups) {
-    if ((state.decisions[g.id] || 'merge') === 'merge') {
-      g.memberUids.forEach((u) => absorbed.add(u));
-      items.push({
-        itemId: 'm' + g.id, kind: 'merged', mergedCount: g.memberUids.length,
-        display: { fullName: g.merged.fullName, org: g.merged.org, emails: g.merged.emails, phones: g.merged.phones },
-        raw: g.merged.raw,
-      });
-    }
+  for (const g of state.groups) {
+    const gs = state.gstate[g.id];
+    if (gs.decision !== 'merge') continue;
+    const incl = g.members.filter((m) => gs.included.has(m.uid));
+    if (incl.length < 2) continue; // not enough to merge -> members stay singles
+    incl.forEach((m) => absorbed.add(m.uid));
+    const md = gs.merged;
+    items.push({
+      itemId: 'm' + g.id, kind: 'merged', mergedCount: incl.length, contact: md,
+      display: { fullName: md.fullName, org: md.org, emails: (md.emails || []).map((e) => e.value), phones: (md.phones || []).map((p) => p.value) },
+    });
   }
   for (const r of state.records) {
     if (absorbed.has(r.uid)) continue;
     items.push({
-      itemId: r.uid, kind: 'single',
+      itemId: r.uid, kind: 'single', raw: r.raw,
       display: { fullName: r.fullName, org: r.org, emails: r.emails, phones: r.phones },
-      raw: r.raw,
     });
   }
   return items;
@@ -178,21 +215,27 @@ function rebuildSelection() {
 }
 
 async function reloadData() {
-  // any change to the file set invalidates downstream steps
-  state.importPath = null; state.imported = false; state.verifyPassed = false;
+  invalidateDownstream();
   if (!state.files.length) {
-    state.records = []; state.dupGroups = []; state.items = [];
+    state.records = []; state.recordByUid = new Map();
+    state.groups = []; state.gstate = {}; state.items = [];
     state.selected.clear();
     renderFileList(); renderDupes(); renderSelectionList(); refresh();
     return;
   }
   const lf = await window.api.loadFiles(state.files);
   state.records = lf.records;
+  state.recordByUid = new Map(lf.records.map((r) => [r.uid, r]));
   const fd = await window.api.findDuplicates(state.files);
-  state.dupGroups = fd.groups;
-  const dec = {};
-  for (const g of state.dupGroups) dec[g.id] = state.decisions[g.id] || 'merge';
-  state.decisions = dec;
+  state.groups = fd.groups;
+  state.gstate = {};
+  for (const g of state.groups) {
+    state.gstate[g.id] = {
+      decision: 'merge',
+      included: new Set(g.members.map((m) => m.uid)),
+      merged: mergeLocal(g.members),
+    };
+  }
   renderFileList(); renderDupes(); rebuildSelection(); refresh();
 }
 
@@ -217,40 +260,147 @@ function renderFileList() {
   });
 }
 
+function memberDetailsHtml(m) {
+  const rows = [];
+  if (m.org) rows.push(`Company: ${escapeHtml(m.org)}`);
+  if (m.title) rows.push(`Title: ${escapeHtml(m.title)}`);
+  for (const p of m.phones || []) rows.push(`Phone (${escapeHtml(p.label || '')}): ${escapeHtml(p.value)}`);
+  for (const e of m.emails || []) rows.push(`Email (${escapeHtml(e.label || '')}): ${escapeHtml(e.value)}`);
+  for (const a of m.addresses || []) rows.push(`Address: ${escapeHtml(a)}`);
+  if (m.birthday) rows.push(`Birthday: ${escapeHtml(m.birthday)}`);
+  if (m.note) rows.push(`Note: ${escapeHtml(m.note)}`);
+  return rows.length ? rows.map((r) => `<div>${r}</div>`).join('') : '<div class="muted">(no other details)</div>';
+}
+
+// Editable form bound to gs.merged. Edits update in place; selection refreshes
+// without re-rendering the form (so the input keeps focus).
+function buildMergeEditor(g, gs) {
+  const wrap = document.createElement('div');
+  wrap.className = 'merge-edit';
+  const t = document.createElement('div');
+  t.className = 'me-title';
+  t.textContent = 'Merged result (editable)';
+  wrap.appendChild(t);
+
+  const m = gs.merged;
+  const field = (label, value, multi) => {
+    const row = document.createElement('label');
+    row.className = 'me-field';
+    const span = document.createElement('span');
+    span.textContent = label;
+    const inp = multi ? document.createElement('textarea') : document.createElement('input');
+    if (multi) inp.rows = Math.max(1, String(value).split('\n').filter(Boolean).length);
+    inp.value = value;
+    row.appendChild(span); row.appendChild(inp);
+    wrap.appendChild(row);
+    return inp;
+  };
+  const iName = field('Name', m.fullName || '');
+  const iOrg = field('Company', m.org || '');
+  const iTitle = field('Title', m.title || '');
+  const iPhones = field('Phones (one per line)', (m.phones || []).map((p) => p.value).join('\n'), true);
+  const iEmails = field('Emails (one per line)', (m.emails || []).map((e) => e.value).join('\n'), true);
+  const iAddr = field('Addresses (one per line)', (m.addresses || []).join('\n'), true);
+  const iNote = field('Note', m.note || '', true);
+
+  const lines = (v) => v.split('\n').map((s) => s.trim()).filter(Boolean);
+  const commit = () => {
+    m.fullName = iName.value.trim();
+    m.org = iOrg.value.trim();
+    m.title = iTitle.value.trim();
+    m.phones = lines(iPhones.value).map((v) => ({ label: 'other', value: v }));
+    m.emails = lines(iEmails.value).map((v) => ({ label: 'other', value: v }));
+    m.addresses = lines(iAddr.value);
+    m.note = iNote.value.trim();
+    invalidateDownstream();
+    state.items = computeItems();
+    renderSelectionList();
+    refresh();
+  };
+  [iName, iOrg, iTitle, iPhones, iEmails, iAddr, iNote].forEach((el) => { el.oninput = commit; });
+  return wrap;
+}
+
 function renderDupes() {
   const el = $('dupList');
   el.innerHTML = '';
-  const n = state.dupGroups.length;
+  const n = state.groups.length;
   $('dupSummary').textContent = !state.files.length
     ? 'Add files to scan for duplicates.'
-    : n ? `${n} possible duplicate group(s). Default action: merge — confirm or change each below.`
+    : n ? `${n} possible duplicate group(s). Confirm each: merge (tweak members/fields) or keep separate.`
       : 'No duplicates found — nothing to merge.';
-  for (const g of state.dupGroups) {
-    const dec = state.decisions[g.id] || 'merge';
+
+  for (const g of state.groups) {
+    const gs = state.gstate[g.id];
     const block = document.createElement('div');
     block.className = 'dup-group';
-    const members = g.members.map((m) => {
-      const meta = [...m.emails, ...m.phones].filter(Boolean).join(', ');
-      return `<li>${escapeHtml(m.fullName || '(no name)')}${meta ? ' — ' + escapeHtml(meta) : ''}</li>`;
-    }).join('');
-    const mergedMeta = [g.merged.org, ...g.merged.emails, ...g.merged.phones].filter(Boolean).join(' · ');
-    block.innerHTML =
-      `<div class="dup-title">Possible duplicate · ${g.members.length} contacts</div>` +
-      `<ul class="dup-members">${members}</ul>` +
-      `<div class="dup-merged"><b>Merged →</b> ${escapeHtml(g.merged.fullName || '(no name)')}` +
-      `${mergedMeta ? ' — ' + escapeHtml(mergedMeta) : ''}</div>` +
-      `<div class="dup-actions">` +
-      `<label><input type="radio" name="dup-${g.id}" value="merge" ${dec === 'merge' ? 'checked' : ''}> Merge into one</label>` +
-      `<label><input type="radio" name="dup-${g.id}" value="separate" ${dec === 'separate' ? 'checked' : ''}> Keep separate</label>` +
-      `</div>`;
-    el.appendChild(block);
-    block.querySelectorAll(`input[name="dup-${g.id}"]`).forEach((r) => {
-      r.onchange = () => {
-        state.decisions[g.id] = r.value;
-        state.importPath = null; state.imported = false; state.verifyPassed = false;
-        rebuildSelection(); refresh();
-      };
+
+    const title = document.createElement('div');
+    title.className = 'dup-title';
+    title.textContent = `Possible duplicate · ${g.members.length} contacts`;
+    block.appendChild(title);
+
+    const actions = document.createElement('div');
+    actions.className = 'dup-actions';
+    [['merge', 'Merge into one'], ['separate', 'Keep separate']].forEach(([val, label]) => {
+      const lab = document.createElement('label');
+      const r = document.createElement('input');
+      r.type = 'radio'; r.name = `dup-${g.id}`; r.value = val; r.checked = gs.decision === val;
+      r.onchange = () => { gs.decision = val; invalidateDownstream(); renderDupes(); rebuildSelection(); refresh(); };
+      lab.appendChild(r); lab.appendChild(document.createTextNode(' ' + label));
+      actions.appendChild(lab);
     });
+    block.appendChild(actions);
+
+    if (gs.decision === 'merge') {
+      const mlist = document.createElement('div');
+      mlist.className = 'dup-members2';
+      for (const m of g.members) {
+        const row = document.createElement('div');
+        row.className = 'dup-member';
+        const headr = document.createElement('div');
+        headr.className = 'dm-head';
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox'; cb.checked = gs.included.has(m.uid); cb.title = 'Include in merge';
+        cb.onchange = () => {
+          if (cb.checked) gs.included.add(m.uid); else gs.included.delete(m.uid);
+          gs.merged = mergeLocal(g.members.filter((x) => gs.included.has(x.uid)));
+          invalidateDownstream(); renderDupes(); rebuildSelection(); refresh();
+        };
+        const nm = document.createElement('span');
+        nm.className = 'dm-name';
+        const summary = [m.org, ...(m.emails || []).map((e) => e.value), ...(m.phones || []).map((p) => p.value)].filter(Boolean).join(' · ');
+        nm.textContent = (m.fullName || '(no name)') + (summary ? ` — ${summary}` : '');
+
+        const exp = document.createElement('button');
+        exp.className = 'tiny secondary';
+        exp.textContent = 'Details';
+        const det = document.createElement('div');
+        det.className = 'dm-details hidden';
+        det.innerHTML = memberDetailsHtml(m);
+        exp.onclick = () => {
+          det.classList.toggle('hidden');
+          exp.textContent = det.classList.contains('hidden') ? 'Details' : 'Hide';
+        };
+
+        headr.appendChild(cb); headr.appendChild(nm); headr.appendChild(exp);
+        row.appendChild(headr); row.appendChild(det);
+        mlist.appendChild(row);
+      }
+      block.appendChild(mlist);
+
+      const inclCount = g.members.filter((m) => gs.included.has(m.uid)).length;
+      if (inclCount >= 2) {
+        block.appendChild(buildMergeEditor(g, gs));
+      } else {
+        const note = document.createElement('div');
+        note.className = 'hint';
+        note.textContent = 'Fewer than 2 contacts included — these will be kept as separate contacts.';
+        block.appendChild(note);
+      }
+    }
+    el.appendChild(block);
   }
 }
 
@@ -363,7 +513,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     state.files.push(p);
     ctx.line(`Added: ${p}`);
     await reloadData();
-    const n = state.dupGroups.length;
+    const n = state.groups.length;
     ctx.done('ok', `${state.files.length} file(s), ${state.records.length} contacts` +
       (n ? ` — ${n} duplicate group(s) to review.` : ' — no duplicates found.'));
   });
@@ -384,7 +534,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   $('useSelection').onclick = () => run('useSelection', 'out-select', async (ctx) => {
     const chosen = state.items.filter((it) => state.selected.has(it.itemId) && !state.ignored.has(it.itemId));
     if (!chosen.length) { ctx.done('warn', 'Select at least one contact.'); return; }
-    const r = await window.api.writeImportRaw(chosen.map((it) => it.raw));
+    const payload = chosen.map((it) => (it.kind === 'merged' ? { contact: it.contact } : { raw: it.raw }));
+    const r = await window.api.writeImport(payload);
     state.importPath = r.importPath; state.imported = false; state.verifyPassed = false;
     $('importFile').innerHTML = `Import file: <code>${escapeHtml(r.importPath)}</code>`;
     ctx.line(`Import file: ${r.importPath}`);

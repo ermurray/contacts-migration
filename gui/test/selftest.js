@@ -103,5 +103,36 @@ check('groupDuplicates finds a dup + leaves singles', () => {
   assert.strictEqual(merged.phones.length, 1);   // union picked up the phone
 });
 
+const { matches } = require('../src/core/match');
+const C = (o) => Object.assign({ fullName: '', org: '', note: '', phones: [], emails: [], addresses: [] }, o);
+
+check('no-name: same org + address -> match', () => {
+  const a = C({ org: 'Acme', addresses: ['1 Main St, SF'] });
+  const b = C({ org: 'Acme', addresses: ['1 Main St, SF'] });
+  assert.strictEqual(matches(a, b).matched, true);
+});
+
+check('no-name: different org/address -> NO match (not collapsed)', () => {
+  const a = C({ org: 'Acme', addresses: ['1 Main St'] });
+  const b = C({ org: 'Globex', addresses: ['9 Oak Ave'] });
+  assert.strictEqual(matches(a, b).matched, false);
+});
+
+check('no-name: shared email -> match', () => {
+  const a = C({ emails: [{ label: 'x', value: 'shared@example.com' }] });
+  const b = C({ emails: [{ label: 'x', value: 'Shared@example.com' }] });
+  assert.strictEqual(matches(a, b).matched, true);
+});
+
+check('two empty contacts (no signals) -> NO match', () => {
+  assert.strictEqual(matches(C({}), C({})).matched, false);
+});
+
+check('different names sharing only email -> NOT merged', () => {
+  const a = C({ fullName: 'Bob Smith', emails: [{ label: 'x', value: 'fam@example.com' }] });
+  const b = C({ fullName: 'Jane Doe', emails: [{ label: 'x', value: 'fam@example.com' }] });
+  assert.strictEqual(matches(a, b).matched, false);
+});
+
 console.log(failures === 0 ? '\nALL PASSED' : `\n${failures} FAILED`);
 process.exit(failures === 0 ? 0 : 1);

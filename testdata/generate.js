@@ -21,6 +21,8 @@ const PEOPLE = [
   ['Grace Mbeki', '', '', '+1 (415) 555-0119', 'grace.mbeki@example.com', 'Richmond', 'Dentist'],
   ['Oliver Novak', 'Proseware', 'CTO', '+1 (415) 555-0120', 'oliver.novak@example.com', 'San Francisco', ''],
   ['Fatima Al-Sayed', '', '', '+1 (415) 555-0121', 'fatima.alsayed@example.com', 'Fremont', 'Book club'],
+  // No-name contact — only identifiable by company + address (dup of one in list 2).
+  ['', 'Globex Corporation', 'Front Desk', '', 'reception@globex.example.com', 'Reno', 'main office'],
 ];
 
 // Extra contacts that already exist in the NEW account (should be ignored by verify).
@@ -62,6 +64,8 @@ const LIST2 = [
   ['James Okafor', '', '', '+1 (415) 555-0111', 'james.okafor@example.com', '', ''],
   ['Helena Vogt', 'Litware', 'Analyst', '+1 (415) 555-0130', 'helena.vogt@example.com', 'San Mateo', ''],
   ['Diego Castro', '', '', '+1 (415) 555-0131', 'diego.castro@example.com', '', ''],
+  // No-name dup of the Globex front desk in list 1 — same company + city, no name.
+  ['', 'Globex Corporation', '', '', '', 'Reno', 'front desk line'],
 ];
 
 const nOld = writeVcf('old_contacts.vcf', PEOPLE);
