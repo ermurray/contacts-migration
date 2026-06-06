@@ -3,10 +3,22 @@ const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
-const { parseVcards } = require('./src/core/vcard');
-const { writeBackup } = require('./src/core/backup');
+const { parseVcards, serialize } = require('./src/core/vcard');
+const { writeBackupCombined } = require('./src/core/backup');
 const { verify, reportCsv } = require('./src/core/verify');
+const { groupDuplicates, mergeContacts } = require('./src/core/dedupe');
 const del = require('./src/core/deleteMac');
+
+// Parse one or more .vcf files into flat records with stable uids (fileIdx:idx).
+function parseAll(paths) {
+  const all = [];
+  paths.forEach((p, fi) => {
+    parseVcards(fs.readFileSync(p, 'utf8')).forEach((c, i) => {
+      all.push({ uid: `${fi}:${i}`, contact: c });
+    });
+  });
+  return all;
+}
 
 // Per-user output dir for backups/reports (outside the app bundle).
 function backupDir() {
@@ -64,40 +76,70 @@ function progress(e, msg) {
   if (e && e.sender && !e.sender.isDestroyed()) e.sender.send('progress', { msg });
 }
 
-// Parse a .vcf into a lightweight list for the selection UI.
-ipcMain.handle('load-contacts', async (e, vcfPath) => {
-  progress(e, `Reading ${path.basename(vcfPath)}…`);
-  const contacts = parseVcards(fs.readFileSync(vcfPath, 'utf8'));
-  progress(e, `Parsed ${contacts.length} contacts.`);
-  return contacts.map((c, i) => ({
-    index: i,
-    fullName: c.fullName || '(no name)',
-    org: c.org,
-    emails: c.emails.map((x) => x.value),
-    phones: c.phones.map((x) => x.value),
-  }));
+// Parse one or more .vcf files into a combined record list for the UI.
+ipcMain.handle('load-files', async (e, paths) => {
+  const all = parseAll(paths);
+  progress(e, `Loaded ${all.length} contacts from ${paths.length} file(s).`);
+  return {
+    count: all.length,
+    records: all.map((r) => ({
+      uid: r.uid,
+      fullName: r.contact.fullName || '(no name)',
+      org: r.contact.org,
+      emails: r.contact.emails.map((x) => x.value),
+      phones: r.contact.phones.map((x) => x.value),
+      raw: r.contact.raw,
+    })),
+  };
 });
 
-// Write only the selected contacts to a curated import file (lossless vCards).
-ipcMain.handle('write-selection', async (e, vcfPath, indices) => {
-  const contacts = parseVcards(fs.readFileSync(vcfPath, 'utf8'));
-  const chosen = indices.map((i) => contacts[i]).filter(Boolean);
-  if (!chosen.length) throw new Error('No contacts selected.');
-  const body = chosen.map((c) => c.raw.trim()).join('\r\n') + '\r\n';
+// Find duplicate groups across the combined set and propose a merged contact.
+ipcMain.handle('find-duplicates', async (e, paths) => {
+  const all = parseAll(paths);
+  const { groups } = groupDuplicates(all.map((r) => r.contact));
+  progress(e, `Found ${groups.length} possible duplicate group(s).`);
+  return {
+    groups: groups.map((idxs, gid) => {
+      const members = idxs.map((i) => all[i]);
+      const merged = mergeContacts(members.map((m) => m.contact));
+      return {
+        id: gid,
+        memberUids: members.map((m) => m.uid),
+        members: members.map((m) => ({
+          uid: m.uid,
+          fullName: m.contact.fullName,
+          emails: m.contact.emails.map((x) => x.value),
+          phones: m.contact.phones.map((x) => x.value),
+        })),
+        merged: {
+          fullName: merged.fullName,
+          org: merged.org,
+          emails: merged.emails.map((x) => x.value),
+          phones: merged.phones.map((x) => x.value),
+          raw: serialize(merged),
+        },
+      };
+    }),
+  };
+});
+
+// Write the chosen vCards (originals' raw or merged vCards) to an import file.
+ipcMain.handle('write-import-raw', async (e, rawList) => {
+  if (!rawList || !rawList.length) throw new Error('No contacts selected.');
+  const body = rawList.map((r) => String(r).trim()).join('\r\n') + '\n';
   const outPath = path.join(backupDir(), `to_import_${Date.now()}.vcf`);
   fs.writeFileSync(outPath, body, 'utf8');
-  progress(e, `Prepared ${chosen.length} contacts for import.`);
-  return { importPath: outPath, count: chosen.length };
+  progress(e, `Prepared ${rawList.length} contacts for import.`);
+  return { importPath: outPath, count: rawList.length };
 });
 
-ipcMain.handle('backup', async (e, vcfPath) => {
-  progress(e, `Reading ${path.basename(vcfPath)}…`);
-  const contacts = parseVcards(fs.readFileSync(vcfPath, 'utf8'));
-  if (!contacts.length) throw new Error('No contacts parsed from that file.');
-  progress(e, `Parsed ${contacts.length} contacts.`);
-  progress(e, 'Writing CSV + lossless vCard copy…');
-  const res = writeBackup(contacts, vcfPath, backupDir());
-  return res;
+// Back up ALL contacts across the chosen files (CSV + combined vcf).
+ipcMain.handle('backup-files', async (e, paths) => {
+  const all = parseAll(paths);
+  const contacts = all.map((r) => r.contact);
+  if (!contacts.length) throw new Error('No contacts to back up.');
+  progress(e, `Backing up ${contacts.length} contacts…`);
+  return writeBackupCombined(contacts, backupDir());
 });
 
 ipcMain.handle('snapshot', async (e, vcfPath) => {

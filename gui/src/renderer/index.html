@@ -105,20 +105,29 @@
           </div>
 
           <article class="card">
-            <div class="substep"><span class="substep-num">1</span> Sub‑step 1 of 2</div>
-            <h2><span class="tick" data-when="source"></span> Choose the exported file</h2>
-            <p class="muted">Pick the <code>.vcf</code> you exported in the Prepare step.</p>
+            <div class="substep"><span class="substep-num">1</span> Sub‑step 1 of 3</div>
+            <h2><span class="tick" data-when="source"></span> Add your export file(s)</h2>
+            <p class="muted">Add one <code>.vcf</code>, or several — e.g. one per phone list/account. They're combined into a single working set you can de‑duplicate and select from.</p>
             <div class="row">
-              <button id="pickOld" class="secondary"><span class="spin"></span><span class="lbl">Choose exported .vcf…</span></button>
-              <span id="oldPath" class="path">No file chosen</span>
+              <button id="addFile" class="secondary"><span class="spin"></span><span class="lbl">Add export .vcf…</span></button>
+              <span id="fileCount" class="muted">No files added yet.</span>
             </div>
-            <div class="step-out hidden" id="out-old"><div class="st-head"><span class="st-icon"></span><span class="st-msg"></span></div><div class="st-lines"></div><div class="st-actions"></div></div>
+            <div id="fileList" class="file-list"></div>
+            <div class="step-out hidden" id="out-files"><div class="st-head"><span class="st-icon"></span><span class="st-msg"></span></div><div class="st-lines"></div><div class="st-actions"></div></div>
           </article>
 
           <article class="card">
-            <div class="substep"><span class="substep-num">2</span> Sub‑step 2 of 2</div>
+            <div class="substep"><span class="substep-num">2</span> Sub‑step 2 of 3</div>
+            <h2><span class="tick" data-when="import"></span> Review duplicates</h2>
+            <p class="muted">We auto‑suggest merging likely duplicates. Confirm each one — <b>Merge</b> combines their phones/emails into a single contact, or <b>Keep separate</b> leaves them as‑is. You can also ignore a contact in the next step.</p>
+            <div id="dupSummary" class="muted">Add files to scan for duplicates.</div>
+            <div id="dupList" class="dup-list"></div>
+          </article>
+
+          <article class="card">
+            <div class="substep"><span class="substep-num">3</span> Sub‑step 3 of 3</div>
             <h2><span class="tick" data-when="import"></span> Select which contacts to migrate</h2>
-            <p class="muted">vCards don't record which account owned a contact — filter by email/domain, name, org, or phone.</p>
+            <p class="muted">Merged contacts show a badge; ignored ones are greyed out and excluded. Filter by email/domain, name, org, or phone.</p>
             <div class="filters">
               <input id="filterText" type="text" placeholder="Search name, email, phone, org…" />
               <input id="filterEmail" type="text" placeholder="Email contains (e.g. @oldco.com)" />
@@ -127,9 +136,9 @@
               <button id="selAll" class="secondary tiny">Select all</button>
               <button id="selNone" class="secondary tiny">Select none</button>
               <button id="selFiltered" class="secondary tiny">Select shown</button>
-              <span id="selCount" class="muted">No file loaded yet.</span>
+              <span id="selCount" class="muted">No files loaded yet.</span>
             </div>
-            <div id="contactList" class="contact-list"><div class="cl-empty">Choose a .vcf above to list contacts here.</div></div>
+            <div id="contactList" class="contact-list"><div class="cl-empty">Add a .vcf above to list contacts here.</div></div>
             <button id="useSelection" disabled><span class="spin"></span><span class="lbl">Use selected contacts</span></button>
             <div class="step-out hidden" id="out-select"><div class="st-head"><span class="st-icon"></span><span class="st-msg"></span></div><div class="st-lines"></div><div class="st-actions"></div></div>
           </article>

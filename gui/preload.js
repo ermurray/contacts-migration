@@ -5,9 +5,10 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('api', {
   platform: () => ipcRenderer.invoke('platform'),
   pickVcf: (title) => ipcRenderer.invoke('pick-vcf', title),
-  loadContacts: (vcfPath) => ipcRenderer.invoke('load-contacts', vcfPath),
-  writeSelection: (vcfPath, indices) => ipcRenderer.invoke('write-selection', vcfPath, indices),
-  backup: (vcfPath) => ipcRenderer.invoke('backup', vcfPath),
+  loadFiles: (paths) => ipcRenderer.invoke('load-files', paths),
+  findDuplicates: (paths) => ipcRenderer.invoke('find-duplicates', paths),
+  writeImportRaw: (rawList) => ipcRenderer.invoke('write-import-raw', rawList),
+  backupFiles: (paths) => ipcRenderer.invoke('backup-files', paths),
   snapshot: (vcfPath) => ipcRenderer.invoke('snapshot', vcfPath),
   verify: (oldPath, newPath) => ipcRenderer.invoke('verify', oldPath, newPath),
   deletePlan: (oldPath, snapPath) => ipcRenderer.invoke('delete-plan', oldPath, snapPath),

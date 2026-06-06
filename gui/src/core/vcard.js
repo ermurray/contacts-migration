@@ -139,4 +139,31 @@ function parseVcards(text) {
   return contacts;
 }
 
-module.exports = { parseVcards };
+function escapeValue(v) {
+  return String(v == null ? '' : v)
+    .replace(/\\/g, '\\\\')
+    .replace(/\n/g, '\\n')
+    .replace(/,/g, '\\,')
+    .replace(/;/g, '\\;');
+}
+
+// Build a vCard 3.0 string from a Contact-like object. Used for merged contacts
+// (originals keep their own `raw`).
+function serialize(c) {
+  const e = escapeValue;
+  const parts = String(c.fullName || '').trim().split(/\s+/).filter(Boolean);
+  const given = parts.shift() || '';
+  const family = parts.join(' ');
+  const L = ['BEGIN:VCARD', 'VERSION:3.0', `N:${e(family)};${e(given)};;;`, `FN:${e(c.fullName || '')}`];
+  if (c.org) L.push(`ORG:${e(c.org)}`);
+  if (c.title) L.push(`TITLE:${e(c.title)}`);
+  for (const p of c.phones || []) L.push(`TEL;TYPE=${(p.label || 'other').toUpperCase()}:${e(p.value)}`);
+  for (const em of c.emails || []) L.push(`EMAIL;TYPE=${(em.label || 'other').toUpperCase()}:${e(em.value)}`);
+  for (const a of c.addresses || []) L.push(`ADR;TYPE=HOME:;;${e(a)};;;;`);
+  if (c.birthday) L.push(`BDAY:${e(c.birthday)}`);
+  if (c.note) L.push(`NOTE:${e(c.note)}`);
+  L.push('END:VCARD');
+  return L.join('\r\n');
+}
+
+module.exports = { parseVcards, serialize };

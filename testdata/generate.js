@@ -55,7 +55,18 @@ function writeVcf(file, people) {
   return people.length;
 }
 
+// A second "list" with overlap (duplicates of Maria + James, slightly different
+// data) plus two new people — for testing combine + dedupe.
+const LIST2 = [
+  ['Maria Hernandez', 'Northwind Traders', 'Senior Account Manager', '+1 (415) 555-0110', 'maria.h@work.example.com', 'San Francisco', 'dup of list 1'],
+  ['James Okafor', '', '', '+1 (415) 555-0111', 'james.okafor@example.com', '', ''],
+  ['Helena Vogt', 'Litware', 'Analyst', '+1 (415) 555-0130', 'helena.vogt@example.com', 'San Mateo', ''],
+  ['Diego Castro', '', '', '+1 (415) 555-0131', 'diego.castro@example.com', '', ''],
+];
+
 const nOld = writeVcf('old_contacts.vcf', PEOPLE);
+const nL2 = writeVcf('old_list2.vcf', LIST2);
+console.log(`old_list2.vcf            : ${nL2} contacts (2 dup Maria/James + 2 new)`);
 // Full new-account export: all old contacts migrated + pre-existing extras.
 const nFull = writeVcf('new_export_full.vcf', [...PEOPLE, ...EXTRAS]);
 // Incomplete export: one old contact failed to migrate (drop Chen Wei, index 5).

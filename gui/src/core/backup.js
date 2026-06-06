@@ -46,4 +46,16 @@ function writeBackup(contacts, srcPath, outDir) {
   return { csvPath, vcfPath, count: contacts.length };
 }
 
-module.exports = { writeBackup, toCsv, joinLabeled, timestamp, csvCell };
+// Back up a combined set of contacts (from one or more files): CSV + a single
+// concatenated .vcf of every contact.
+function writeBackupCombined(contacts, outDir) {
+  fs.mkdirSync(outDir, { recursive: true });
+  const ts = timestamp();
+  const csvPath = path.join(outDir, `contacts_backup_${ts}.csv`);
+  const vcfPath = path.join(outDir, `all_contacts_${ts}.vcf`);
+  fs.writeFileSync(csvPath, toCsv(contacts), 'utf8');
+  fs.writeFileSync(vcfPath, contacts.map((c) => String(c.raw).trim()).join('\r\n') + '\n', 'utf8');
+  return { csvPath, vcfPath, count: contacts.length };
+}
+
+module.exports = { writeBackup, writeBackupCombined, toCsv, joinLabeled, timestamp, csvCell };

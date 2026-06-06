@@ -5,10 +5,11 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const { parseVcards } = require('../src/core/vcard');
+const { parseVcards, serialize } = require('../src/core/vcard');
 const { writeBackup } = require('../src/core/backup');
 const { verify } = require('../src/core/verify');
 const { computeDeletable } = require('../src/core/deleteMac');
+const { groupDuplicates, mergeContacts } = require('../src/core/dedupe');
 
 const SAMPLE = path.join(__dirname, '..', '..', 'sample');
 const read = (f) => fs.readFileSync(path.join(SAMPLE, f), 'utf8');
@@ -70,6 +71,36 @@ check('computeDeletable matches snapshot, excludes unrelated', () => {
   const del = computeDeletable(oldC, snapshot);
   assert.strictEqual(del.length, 3);
   assert.ok(!del.some((d) => d.name === 'Some Unrelated Person'));
+});
+
+check('serialize round-trips a contact', () => {
+  const c = {
+    fullName: 'Ada Lovelace', org: 'Engines', title: 'Math',
+    phones: [{ label: 'cell', value: '+1 (415) 555-0101' }],
+    emails: [{ label: 'work', value: 'ada@example.com' }],
+    addresses: [], note: 'note; with, specials',
+  };
+  const back = parseVcards(serialize(c));
+  assert.strictEqual(back.length, 1);
+  assert.strictEqual(back[0].fullName, 'Ada Lovelace');
+  assert.strictEqual(back[0].emails[0].value, 'ada@example.com');
+  assert.strictEqual(back[0].note, 'note; with, specials');
+});
+
+check('groupDuplicates finds a dup + leaves singles', () => {
+  // Ada appears twice (shared email), Alan once.
+  const dupVcf =
+    'BEGIN:VCARD\nVERSION:3.0\nFN:Ada Lovelace\nEMAIL:ada@example.com\nEND:VCARD\n' +
+    'BEGIN:VCARD\nVERSION:3.0\nFN:Ada Lovelace\nTEL:415-555-0101\nEMAIL:ada@example.com\nEND:VCARD\n' +
+    'BEGIN:VCARD\nVERSION:3.0\nFN:Alan Turing\nEMAIL:alan@example.com\nEND:VCARD\n';
+  const cs = parseVcards(dupVcf);
+  const { groups, singles } = groupDuplicates(cs);
+  assert.strictEqual(groups.length, 1);
+  assert.strictEqual(groups[0].length, 2);
+  assert.strictEqual(singles.length, 1);
+  const merged = mergeContacts(groups[0].map((i) => cs[i]));
+  assert.strictEqual(merged.emails.length, 1);   // deduped email
+  assert.strictEqual(merged.phones.length, 1);   // union picked up the phone
 });
 
 console.log(failures === 0 ? '\nALL PASSED' : `\n${failures} FAILED`);

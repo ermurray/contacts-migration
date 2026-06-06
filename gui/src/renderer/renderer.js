@@ -2,10 +2,14 @@
 /* global window, document */
 
 const state = {
-  sourcePath: null,   // the full exported .vcf the user picked
-  contacts: [],       // lightweight list for the selection UI
-  selected: new Set(),// indices currently selected
-  importPath: null,   // curated subset written for import (selected only)
+  files: [],          // added .vcf paths
+  records: [],        // combined contacts {uid, fullName, org, emails, phones, raw}
+  dupGroups: [],      // duplicate groups from main
+  decisions: {},      // groupId -> 'merge' | 'separate'
+  ignored: new Set(), // itemIds the user ignored (soft-deleted)
+  selected: new Set(),// itemIds selected to migrate
+  items: [],          // resolved selectable items (merged + singles)
+  importPath: null,   // curated import file
   newPath: null,
   snapPath: null,
   hasBackup: false,
@@ -15,8 +19,7 @@ const state = {
   isMac: false,
 };
 
-let activeOut = null; // the .step-out currently receiving live progress lines
-
+let activeOut = null;
 const $ = (id) => document.getElementById(id);
 
 // ---- stepper navigation ----
@@ -38,7 +41,7 @@ function showPhase(i) {
 
 function updateProgress() {
   const done = {
-    source: !!state.sourcePath,
+    source: state.files.length > 0,
     import: !!state.importPath,
     backup: state.hasBackup,
     snapshot: !!state.snapPath,
@@ -49,7 +52,7 @@ function updateProgress() {
   document.querySelectorAll('.tick').forEach((t) =>
     t.classList.toggle('done', !!done[t.dataset.when]));
   const phaseDone = [
-    !!state.sourcePath,
+    state.files.length > 0,
     !!state.importPath,
     state.hasBackup && state.verifyPassed,
     state.deleted,
@@ -61,8 +64,7 @@ function updateProgress() {
 // ---- bottom terminal ----
 function log(msg) {
   const el = $('log');
-  const ts = new Date().toLocaleTimeString();
-  el.textContent += `[${ts}] ${msg}\n`;
+  el.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
   el.scrollTop = el.scrollHeight;
 }
 
@@ -108,7 +110,6 @@ function addAction(out, label, onClick) {
   return b;
 }
 
-// Drive a button + its output panel through an async action with a spinner.
 async function run(btnId, outId, fn) {
   const btn = $(btnId);
   const out = $(outId);
@@ -121,7 +122,7 @@ async function run(btnId, outId, fn) {
   activeOut = out;
   const ctx = {
     line: (m) => { addLine(out, m); log(m); },
-    done: (stateName, m) => head(out, stateName, m),
+    done: (s, m) => head(out, s, m),
     button: (label, onClick) => addAction(out, label, onClick),
   };
   try {
@@ -137,89 +138,195 @@ async function run(btnId, outId, fn) {
 }
 
 function refresh() {
-  $('useSelection').disabled = !(state.sourcePath && state.selected.size > 0);
-  $('backup').disabled = !state.sourcePath;
+  $('useSelection').disabled = !(state.items.length && state.selected.size > 0);
+  $('backup').disabled = !state.files.length;
   $('snapshot').disabled = !(state.isMac && state.importPath);
   $('verify').disabled = !(state.importPath && state.newPath && state.imported);
   $('delete').disabled = !(state.hasBackup && state.verifyPassed);
   updateProgress();
 }
 
-// ---- contact selection UI ----
-function matchesFilters(c) {
+// ---- combine / dedupe / select data model ----
+function computeItems() {
+  const absorbed = new Set();
+  const items = [];
+  for (const g of state.dupGroups) {
+    if ((state.decisions[g.id] || 'merge') === 'merge') {
+      g.memberUids.forEach((u) => absorbed.add(u));
+      items.push({
+        itemId: 'm' + g.id, kind: 'merged', mergedCount: g.memberUids.length,
+        display: { fullName: g.merged.fullName, org: g.merged.org, emails: g.merged.emails, phones: g.merged.phones },
+        raw: g.merged.raw,
+      });
+    }
+  }
+  for (const r of state.records) {
+    if (absorbed.has(r.uid)) continue;
+    items.push({
+      itemId: r.uid, kind: 'single',
+      display: { fullName: r.fullName, org: r.org, emails: r.emails, phones: r.phones },
+      raw: r.raw,
+    });
+  }
+  return items;
+}
+
+function rebuildSelection() {
+  state.items = computeItems();
+  state.selected = new Set(state.items.filter((it) => !state.ignored.has(it.itemId)).map((it) => it.itemId));
+  renderSelectionList();
+}
+
+async function reloadData() {
+  // any change to the file set invalidates downstream steps
+  state.importPath = null; state.imported = false; state.verifyPassed = false;
+  if (!state.files.length) {
+    state.records = []; state.dupGroups = []; state.items = [];
+    state.selected.clear();
+    renderFileList(); renderDupes(); renderSelectionList(); refresh();
+    return;
+  }
+  const lf = await window.api.loadFiles(state.files);
+  state.records = lf.records;
+  const fd = await window.api.findDuplicates(state.files);
+  state.dupGroups = fd.groups;
+  const dec = {};
+  for (const g of state.dupGroups) dec[g.id] = state.decisions[g.id] || 'merge';
+  state.decisions = dec;
+  renderFileList(); renderDupes(); rebuildSelection(); refresh();
+}
+
+function renderFileList() {
+  const el = $('fileList');
+  $('fileCount').textContent = state.files.length
+    ? `${state.files.length} file(s) · ${state.records.length} contacts`
+    : 'No files added yet.';
+  el.innerHTML = '';
+  state.files.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.className = 'file-row';
+    const name = document.createElement('span');
+    name.className = 'fr-name';
+    name.textContent = p;
+    const rm = document.createElement('button');
+    rm.className = 'tiny secondary';
+    rm.textContent = 'Remove';
+    rm.onclick = async () => { state.files.splice(i, 1); await reloadData(); };
+    row.appendChild(name); row.appendChild(rm);
+    el.appendChild(row);
+  });
+}
+
+function renderDupes() {
+  const el = $('dupList');
+  el.innerHTML = '';
+  const n = state.dupGroups.length;
+  $('dupSummary').textContent = !state.files.length
+    ? 'Add files to scan for duplicates.'
+    : n ? `${n} possible duplicate group(s). Default action: merge — confirm or change each below.`
+      : 'No duplicates found — nothing to merge.';
+  for (const g of state.dupGroups) {
+    const dec = state.decisions[g.id] || 'merge';
+    const block = document.createElement('div');
+    block.className = 'dup-group';
+    const members = g.members.map((m) => {
+      const meta = [...m.emails, ...m.phones].filter(Boolean).join(', ');
+      return `<li>${escapeHtml(m.fullName || '(no name)')}${meta ? ' — ' + escapeHtml(meta) : ''}</li>`;
+    }).join('');
+    const mergedMeta = [g.merged.org, ...g.merged.emails, ...g.merged.phones].filter(Boolean).join(' · ');
+    block.innerHTML =
+      `<div class="dup-title">Possible duplicate · ${g.members.length} contacts</div>` +
+      `<ul class="dup-members">${members}</ul>` +
+      `<div class="dup-merged"><b>Merged →</b> ${escapeHtml(g.merged.fullName || '(no name)')}` +
+      `${mergedMeta ? ' — ' + escapeHtml(mergedMeta) : ''}</div>` +
+      `<div class="dup-actions">` +
+      `<label><input type="radio" name="dup-${g.id}" value="merge" ${dec === 'merge' ? 'checked' : ''}> Merge into one</label>` +
+      `<label><input type="radio" name="dup-${g.id}" value="separate" ${dec === 'separate' ? 'checked' : ''}> Keep separate</label>` +
+      `</div>`;
+    el.appendChild(block);
+    block.querySelectorAll(`input[name="dup-${g.id}"]`).forEach((r) => {
+      r.onchange = () => {
+        state.decisions[g.id] = r.value;
+        state.importPath = null; state.imported = false; state.verifyPassed = false;
+        rebuildSelection(); refresh();
+      };
+    });
+  }
+}
+
+function matchesItem(it) {
   const text = $('filterText').value.trim().toLowerCase();
   const email = $('filterEmail').value.trim().toLowerCase();
-  if (email) {
-    if (!c.emails.some((e) => e.toLowerCase().includes(email))) return false;
-  }
+  const d = it.display;
+  if (email && !d.emails.some((e) => e.toLowerCase().includes(email))) return false;
   if (text) {
-    const hay = [c.fullName, c.org, ...c.emails, ...c.phones].join(' ').toLowerCase();
+    const hay = [d.fullName, d.org, ...d.emails, ...d.phones].join(' ').toLowerCase();
     if (!hay.includes(text)) return false;
   }
   return true;
 }
 
-function visibleIndices() {
-  return state.contacts.filter(matchesFilters).map((c) => c.index);
+function updateSelCount() {
+  const total = state.items.length;
+  const shown = state.items.filter(matchesItem).length;
+  $('selCount').textContent = total
+    ? `${state.selected.size} of ${total} selected` + (shown !== total ? ` · ${shown} shown` : '')
+    : 'No files loaded yet.';
 }
 
-function updateCount() {
-  const total = state.contacts.length;
-  const shown = visibleIndices().length;
-  $('selCount').textContent =
-    `${state.selected.size} of ${total} selected` +
-    (shown !== total ? ` · ${shown} shown` : '');
-}
-
-function renderList() {
+function renderSelectionList() {
   const list = $('contactList');
-  if (!state.contacts.length) {
-    list.innerHTML = '<div class="cl-empty">Choose a .vcf in step 2 to list contacts here.</div>';
-    updateCount();
+  if (!state.items.length) {
+    list.innerHTML = '<div class="cl-empty">Add a .vcf above to list contacts here.</div>';
+    updateSelCount();
     return;
   }
   const frag = document.createDocumentFragment();
-  for (const c of state.contacts) {
-    const row = document.createElement('label');
-    row.className = 'cl-row' + (matchesFilters(c) ? '' : ' hiddenrow');
+  for (const it of state.items) {
+    const ignored = state.ignored.has(it.itemId);
+    const row = document.createElement('div');
+    row.className = 'cl-row' + (matchesItem(it) ? '' : ' hiddenrow') + (ignored ? ' ignored' : '');
     const cb = document.createElement('input');
     cb.type = 'checkbox';
-    cb.checked = state.selected.has(c.index);
+    cb.checked = state.selected.has(it.itemId) && !ignored;
+    cb.disabled = ignored;
     cb.onchange = () => {
-      if (cb.checked) state.selected.add(c.index); else state.selected.delete(c.index);
-      updateCount(); refresh();
+      if (cb.checked) state.selected.add(it.itemId); else state.selected.delete(it.itemId);
+      updateSelCount(); refresh();
     };
-    const meta = [c.org, ...c.emails, ...c.phones].filter(Boolean).join(' · ');
     const info = document.createElement('div');
     const name = document.createElement('div');
     name.className = 'cl-name';
-    name.textContent = c.fullName;
+    name.textContent = it.display.fullName || '(no name)';
+    if (it.kind === 'merged') {
+      const b = document.createElement('span');
+      b.className = 'badge';
+      b.textContent = `merged ${it.mergedCount}`;
+      name.append(' ', b);
+    }
     const sub = document.createElement('div');
     sub.className = 'cl-meta';
-    sub.textContent = meta || '(no other details)';
+    sub.textContent = [it.display.org, ...it.display.emails, ...it.display.phones].filter(Boolean).join(' · ') || '(no other details)';
     info.appendChild(name); info.appendChild(sub);
-    row.appendChild(cb); row.appendChild(info);
+    const ig = document.createElement('button');
+    ig.className = 'tiny secondary';
+    ig.textContent = ignored ? 'Restore' : 'Ignore';
+    ig.onclick = () => {
+      if (ignored) { state.ignored.delete(it.itemId); state.selected.add(it.itemId); }
+      else { state.ignored.add(it.itemId); state.selected.delete(it.itemId); }
+      renderSelectionList(); refresh();
+    };
+    row.appendChild(cb); row.appendChild(info); row.appendChild(ig);
     frag.appendChild(row);
   }
   list.innerHTML = '';
   list.appendChild(frag);
-  updateCount();
-}
-
-async function loadContactsForSelection(ctx) {
-  state.contacts = await window.api.loadContacts(state.sourcePath);
-  state.selected = new Set(state.contacts.map((c) => c.index)); // default: all
-  renderList();
-  ctx.line(`Listed ${state.contacts.length} contacts (all selected by default).`);
-  ctx.done('ok', `${state.contacts.length} contacts loaded — refine your selection in step 3.`);
+  updateSelCount();
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
   window.api.onProgress((d) => {
-    if (d.pct != null) {
-      if (activeOut) setProgress(activeOut, d.pct, d.msg);
-      return;
-    }
+    if (d.pct != null) { if (activeOut) setProgress(activeOut, d.pct, d.msg); return; }
     if (activeOut) addLine(activeOut, d.msg);
     log(d.msg);
   });
@@ -248,54 +355,53 @@ window.addEventListener('DOMContentLoaded', async () => {
   };
   $('clearLog').onclick = () => { $('log').textContent = ''; };
 
-  // Step 2: pick old export -> load list
-  $('pickOld').onclick = () => run('pickOld', 'out-old', async (ctx) => {
-    const p = await window.api.pickVcf('Choose the OLD contacts .vcf');
-    if (!p) { ctx.done('warn', 'No file chosen.'); return; }
-    state.sourcePath = p;
-    state.importPath = null; state.hasBackup = false; state.imported = false; state.verifyPassed = false;
-    $('oldPath').textContent = p;
-    $('importFile').innerHTML = 'Import file: <i>(complete step 3 to generate it)</i>';
-    ctx.line(`Selected: ${p}`);
-    await loadContactsForSelection(ctx);
+  // Select — sub-step 1: add/remove files
+  $('addFile').onclick = () => run('addFile', 'out-files', async (ctx) => {
+    const p = await window.api.pickVcf('Add an exported .vcf');
+    if (!p) { ctx.done('warn', 'No file added.'); return; }
+    if (state.files.includes(p)) { ctx.done('warn', 'That file is already added.'); return; }
+    state.files.push(p);
+    ctx.line(`Added: ${p}`);
+    await reloadData();
+    const n = state.dupGroups.length;
+    ctx.done('ok', `${state.files.length} file(s), ${state.records.length} contacts` +
+      (n ? ` — ${n} duplicate group(s) to review.` : ' — no duplicates found.'));
   });
 
-  // Step 3: filters + selection
-  $('filterText').oninput = renderList;
-  $('filterEmail').oninput = renderList;
+  // Select — sub-step 3: filters + bulk selection
+  $('filterText').oninput = renderSelectionList;
+  $('filterEmail').oninput = renderSelectionList;
   $('selAll').onclick = () => {
-    state.contacts.forEach((c) => state.selected.add(c.index));
-    renderList(); refresh();
+    state.items.forEach((it) => { if (!state.ignored.has(it.itemId)) state.selected.add(it.itemId); });
+    renderSelectionList(); refresh();
   };
-  $('selNone').onclick = () => { state.selected.clear(); renderList(); refresh(); };
+  $('selNone').onclick = () => { state.selected.clear(); renderSelectionList(); refresh(); };
   $('selFiltered').onclick = () => {
-    visibleIndices().forEach((i) => state.selected.add(i));
-    renderList(); refresh();
+    state.items.filter(matchesItem).forEach((it) => { if (!state.ignored.has(it.itemId)) state.selected.add(it.itemId); });
+    renderSelectionList(); refresh();
   };
 
   $('useSelection').onclick = () => run('useSelection', 'out-select', async (ctx) => {
-    const indices = [...state.selected].sort((a, b) => a - b);
-    const r = await window.api.writeSelection(state.sourcePath, indices);
-    state.importPath = r.importPath;
-    state.imported = false;     // selection changed -> must re-import
-    state.verifyPassed = false; // and re-verify
+    const chosen = state.items.filter((it) => state.selected.has(it.itemId) && !state.ignored.has(it.itemId));
+    if (!chosen.length) { ctx.done('warn', 'Select at least one contact.'); return; }
+    const r = await window.api.writeImportRaw(chosen.map((it) => it.raw));
+    state.importPath = r.importPath; state.imported = false; state.verifyPassed = false;
     $('importFile').innerHTML = `Import file: <code>${escapeHtml(r.importPath)}</code>`;
     ctx.line(`Import file: ${r.importPath}`);
-    ctx.done('ok', `${r.count} contacts queued for import (steps 6–8 use this set).`);
+    ctx.done('ok', `${r.count} contacts queued for import (Migrate uses this set).`);
   });
 
-  // Step 4: backup (ALL exported contacts, for safety)
+  // Migrate — backup ALL contacts across files
   $('backup').onclick = () => run('backup', 'out-backup', async (ctx) => {
-    const r = await window.api.backup(state.sourcePath);
+    const r = await window.api.backupFiles(state.files);
     state.hasBackup = true;
     ctx.line(`CSV: ${r.csvPath}`);
-    ctx.line(`vCard copy: ${r.vcfPath}`);
+    ctx.line(`vCard: ${r.vcfPath}`);
     ctx.done('ok', `Backed up all ${r.count} contacts.`);
   });
 
-  // Step 5: snapshot (matches the selected set)
+  // Migrate — snapshot
   $('permHelp').onclick = () => window.api.openSettings('automation');
-
   $('snapshot').onclick = () => run('snapshot', 'out-snapshot', async (ctx) => {
     const r = await window.api.snapshot(state.importPath);
     if (r.permission) {
@@ -316,18 +422,15 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Import confirmation — the import itself is manual; this unlocks verify.
+  // Migrate — import confirmation (manual import) -> unlocks verify
   $('confirmImport').onclick = () => run('confirmImport', 'out-import', async (ctx) => {
-    if (!state.importPath) {
-      ctx.done('warn', 'Finish the Select step first, then import that file.');
-      return;
-    }
+    if (!state.importPath) { ctx.done('warn', 'Finish the Select step first, then import that file.'); return; }
     state.imported = true;
     ctx.line('Marked as imported. You can now verify the migration below.');
     ctx.done('ok', 'Import confirmed — Verify is unlocked.');
   });
 
-  // Step: verify (selected vs new export)
+  // Migrate — verify
   $('pickNew').onclick = () => run('pickNew', 'out-verify', async (ctx) => {
     const p = await window.api.pickVcf('Choose the NEW account export .vcf');
     if (!p) { ctx.done('warn', 'No file chosen.'); return; }
@@ -353,7 +456,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Step 8: delete (selected old copies)
+  // Finish — delete
   $('delete').onclick = () => run('delete', 'out-delete', async (ctx) => {
     const plan = await window.api.deletePlan(state.importPath, state.snapPath);
     if (plan.mode === 'manual') {
@@ -367,11 +470,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     showConfirm(plan.targets, ctx);
   });
 
-  // ---- modal ----
   $('modalCancel').onclick = closeModal;
-  $('confirmInput').oninput = (e) => {
-    $('modalOk').disabled = e.target.value.trim() !== 'delete';
-  };
+  $('confirmInput').oninput = (e) => { $('modalOk').disabled = e.target.value.trim() !== 'delete'; };
 });
 
 function showConfirm(targets, ctx) {
