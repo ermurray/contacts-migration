@@ -74,25 +74,50 @@ class Contact:
     def email_keys(self) -> set[str]:
         return {normalize_email(v) for _, v in self.emails if normalize_email(v)}
 
+    @property
+    def org_key(self) -> str:
+        return normalize_name(self.org)
+
+    @property
+    def addr_keys(self) -> set[str]:
+        return {normalize_name(a) for a in self.addresses if normalize_name(a)}
+
+    @property
+    def note_key(self) -> str:
+        return normalize_name(self.note)
+
     def matches(self, other: "Contact") -> tuple[bool, bool]:
         """Return (matched, low_confidence).
 
-        A confident match needs the same name AND a shared phone or email.
-        A name-only match (when one side has no phone/email) is allowed but
-        flagged low-confidence so the operator can eyeball it.
+        Evidence order:
+          1. shared phone/email with compatible names (equal, or one blank);
+          2. same explicit name (confident if org/address agree, else name-only);
+          3. different explicit names -> only a shared phone links them;
+          4. at least one nameless -> compare company/address/notes (two agreeing
+             attributes make a flagged match) so nameless contacts aren't all
+             collapsed on an empty name.
         """
-        if self.name_key != other.name_key:
-            return (False, False)
-        shared = bool(
-            (self.phone_keys & other.phone_keys)
-            or (self.email_keys & other.email_keys)
-        )
-        if shared:
+        an, bn = self.name_key, other.name_key
+        shared_phone = bool(self.phone_keys & other.phone_keys)
+        shared_email = bool(self.email_keys & other.email_keys)
+        both_named = bool(an and bn)
+        same_name = both_named and an == bn
+        some_missing = not an or not bn
+
+        if (shared_phone or shared_email) and (same_name or some_missing):
             return (True, False)
-        # name matches; if either side lacks contact points, allow but flag
-        if not (self.phone_keys or self.email_keys) or not (
-            other.phone_keys or other.email_keys
-        ):
+        if same_name:
+            if (self.org_key and self.org_key == other.org_key) or (
+                    self.addr_keys & other.addr_keys):
+                return (True, False)
+            return (True, True)
+        if both_named:
+            return (True, True) if shared_phone else (False, False)
+
+        shared_org = bool(self.org_key) and self.org_key == other.org_key
+        shared_addr = bool(self.addr_keys & other.addr_keys)
+        shared_note = bool(self.note_key) and self.note_key == other.note_key
+        if (int(shared_org) + int(shared_addr) + int(shared_note)) >= 2:
             return (True, True)
         return (False, False)
 
