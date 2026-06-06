@@ -4,6 +4,10 @@
   "version": "1.0.0-alpha.1",
   "description": "Cross-platform GUI to migrate iCloud contacts between accounts with verified backup and gated deletion",
   "author": "Symbi <eric@symbi.tech>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ermurray/contacts-migration.git"
+  },
   "main": "main.js",
   "scripts": {
     "start": "electron .",

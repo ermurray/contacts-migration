@@ -44,10 +44,13 @@ jobs:
         run: npm test
 
       - name: Build installers
+        # No GH_TOKEN here on purpose: its presence makes electron-builder try to
+        # configure GitHub publishing (even with --publish never) and crash with
+        # "Cannot read properties of null (reading 'provider')". The release is
+        # attached separately below.
         env:
           # No code-signing certificates in CI — build unsigned/ad-hoc.
           CSC_IDENTITY_AUTO_DISCOVERY: false
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx --no-install electron-builder ${{ matrix.args }} --publish never
 
       - name: Upload build artifacts
