@@ -152,7 +152,7 @@
       var ver = rel.tag_name || rel.name || "";
       var when = rel.published_at ? new Date(rel.published_at).toLocaleDateString() : "";
       document.getElementById("verLine").textContent =
-        (ver ? ver : "Latest") + (when ? " · " + when : "");
+        (ver ? ver : "Latest") + (rel.prerelease ? " · pre-release (alpha)" : "") + (when ? " · " + when : "");
 
       var primary = document.getElementById("primaryBtn");
       if (firstForOS) {
@@ -176,8 +176,25 @@
       primary.textContent = "Go to Releases";
     }
 
-    fetch("https://api.github.com/repos/"+REPO+"/releases/latest", {headers:{Accept:"application/vnd.github+json"}})
-      .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
+    var API = "https://api.github.com/repos/" + REPO;
+    var HDRS = {headers:{Accept:"application/vnd.github+json"}};
+
+    // Prefer the latest stable release; if there is none (e.g. only pre-releases
+    // during alpha), fall back to the newest published release of any kind.
+    function latestRelease(){
+      return fetch(API+"/releases/latest", HDRS)
+        .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
+        .catch(function(){
+          return fetch(API+"/releases?per_page=10", HDRS)
+            .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
+            .then(function(list){
+              var pub = (list||[]).filter(function(x){ return !x.draft; });
+              return pub.length ? pub[0] : Promise.reject("none");
+            });
+        });
+    }
+
+    latestRelease()
       .then(function(rel){ (rel.assets && rel.assets.length) ? render(rel) : noRelease(); })
       .catch(noRelease);
   </script>
