@@ -177,7 +177,8 @@
     }
 
     var API = "https://api.github.com/repos/" + REPO;
-    var HDRS = {headers:{Accept:"application/vnd.github+json"}};
+    // no-store so a partially-uploaded release isn't cached by the browser
+    var HDRS = {cache:"no-store", headers:{Accept:"application/vnd.github+json"}};
 
     // Prefer the latest stable release; if there is none (e.g. only pre-releases
     // during alpha), fall back to the newest published release of any kind.
