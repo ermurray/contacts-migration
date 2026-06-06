@@ -1,7 +1,7 @@
 {
   "name": "contacts-migration-gui",
   "productName": "Contacts Migration",
-  "version": "1.0.0-alpha.2",
+  "version": "1.0.0-alpha.3",
   "description": "Cross-platform GUI to migrate iCloud contacts between accounts with verified backup and gated deletion",
   "author": "Symbi <eric@symbi.tech>",
   "repository": {
