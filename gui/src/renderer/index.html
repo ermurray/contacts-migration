@@ -8,66 +8,261 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header>
-    <h1>Contacts Migration</h1>
-    <p class="sub">Move contacts from an old account to a new one — backup, verify, then delete the old copies. <span id="platform" class="pill"></span></p>
-  </header>
-
-  <main>
-    <!-- Step 1 -->
-    <section class="step">
-      <h2><span class="num">1</span> Old contacts export</h2>
-      <p>Export the old contacts to a <code>.vcf</code> (iPhone: share contacts; or Contacts.app ▸ File ▸ Export ▸ vCard), then choose it here.</p>
-      <div class="row">
-        <button id="pickOld">Choose old .vcf…</button>
-        <span id="oldPath" class="path">No file chosen</span>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">◆</span> Contacts Migration</div>
+      <nav class="phases" id="phaseNav">
+        <button class="phase-link" data-i="0">
+          <span class="pl-icon"><span class="pl-num">1</span><span class="pl-check">✓</span></span>
+          <span class="pl-text"><b>Prepare</b><small>Connect &amp; export</small></span>
+        </button>
+        <button class="phase-link" data-i="1">
+          <span class="pl-icon"><span class="pl-num">2</span><span class="pl-check">✓</span></span>
+          <span class="pl-text"><b>Select</b><small>Choose file &amp; contacts</small></span>
+        </button>
+        <button class="phase-link" data-i="2">
+          <span class="pl-icon"><span class="pl-num">3</span><span class="pl-check">✓</span></span>
+          <span class="pl-text"><b>Migrate</b><small>Back up, import &amp; verify</small></span>
+        </button>
+        <button class="phase-link" data-i="3">
+          <span class="pl-icon"><span class="pl-num">4</span><span class="pl-check">✓</span></span>
+          <span class="pl-text"><b>Finish</b><small>Delete the old copies</small></span>
+        </button>
+      </nav>
+      <div class="side-foot">
+        <span id="platform" class="pill"></span>
       </div>
-    </section>
+    </aside>
 
-    <!-- Step 2 -->
-    <section class="step">
-      <h2><span class="num">2</span> Back up</h2>
-      <p>Writes a human-readable CSV and a lossless copy of your export.</p>
-      <button id="backup" disabled>Create backup</button>
-    </section>
+    <!-- Main column -->
+    <div class="main">
+      <div class="content" id="content">
 
-    <!-- Step 3 (mac only) -->
-    <section class="step" id="snapSection">
-      <h2><span class="num">3</span> Snapshot current contacts <span class="mac-only pill">macOS</span></h2>
-      <p>Records what's already on this Mac so the old copies can be removed precisely later. May ask for Automation permission.</p>
-      <button id="snapshot" disabled>Snapshot Contacts.app</button>
-    </section>
+        <!-- PHASE 1: PREPARE -->
+        <section class="phase" id="phase-prepare">
+          <div class="phase-head">
+            <h1>Prepare</h1>
+            <p>Connect your iPhone and export its contacts to a file. You'll choose the file and pick contacts in the next step.</p>
+          </div>
 
-    <!-- Step 4 -->
-    <section class="step">
-      <h2><span class="num">4</span> Import into the new account</h2>
-      <p>System Settings ▸ Contacts ▸ <b>Default Account = new iCloud</b>, then Contacts.app ▸ File ▸ Import your old <code>.vcf</code>. Wait for it to sync.</p>
-    </section>
+          <article class="card">
+            <h2><span class="tick" data-when="source"></span> Connect your iPhone</h2>
+            <p class="muted">Needed only for AirDrop/direct transfer. Using iCloud.com? You can skip this.</p>
+            <details>
+              <summary>Show how to connect</summary>
+              <ol>
+                <li>Connect the iPhone with its cable — or put both devices on the same Wi‑Fi for AirDrop.</li>
+                <li>Unlock the iPhone.</li>
+                <li>If prompted, tap <b>Trust This Computer</b> and enter your passcode.</li>
+              </ol>
+            </details>
+          </article>
 
-    <!-- Step 5 -->
-    <section class="step">
-      <h2><span class="num">5</span> Verify</h2>
-      <p>Export the <b>new</b> account to a fresh <code>.vcf</code> and choose it. We confirm every old contact is present.</p>
-      <div class="row">
-        <button id="pickNew">Choose new export .vcf…</button>
-        <span id="newPath" class="path">No file chosen</span>
+          <article class="card">
+            <h2><span class="tick" data-when="source"></span> Export contacts from your iPhone</h2>
+            <p class="muted">Get the old contacts into one <code>.vcf</code> file. <b>Method A is recommended.</b></p>
+
+            <details open>
+              <summary><b>Method A</b> — On your iPhone, no sync required <span class="pill accent">recommended</span></summary>
+              <ol>
+                <li>Open the native <b>Contacts</b> app on your iPhone.</li>
+                <li>Tap the <b>Lists</b> button in the top‑left corner to view your contact lists.</li>
+                <li><b>Touch and hold</b> the list to export (e.g. <i>All Contacts</i> or <i>All iPhone</i>).</li>
+                <li>Tap <b>Export</b> from the pop‑up menu.</li>
+                <li>Select the fields to include (phone, email, notes…), then tap <b>Done</b>.</li>
+                <li>Send it via <b>Mail</b>, <b>Save to Files</b>, or <b>AirDrop</b> to this computer.</li>
+                <li>Open that <code>.vcf</code> here (email / Files / Downloads), then choose it below.</li>
+              </ol>
+              <p class="hint">No <b>Export</b> option? Update to the latest iOS, or use Method B/C.</p>
+            </details>
+
+            <details>
+              <summary><b>Method B</b> — iCloud.com (any computer)</summary>
+              <ol>
+                <li>Open <b>icloud.com</b> and sign in with the <u>old</u> account ▸ <b>Contacts</b>.</li>
+                <li>Click a contact, press <b>⌘A / Ctrl‑A</b> to select all.</li>
+                <li><b>⚙︎ gear</b> (lower‑left) ▸ <b>Export vCard…</b> and save the file.</li>
+              </ol>
+            </details>
+
+            <details>
+              <summary><b>Method C</b> — Mac Contacts app</summary>
+              <ol>
+                <li>Open <b>Contacts</b>, pick the old account/group in the sidebar.</li>
+                <li><b>Edit ▸ Select All</b>, then <b>File ▸ Export ▸ Export vCard…</b>.</li>
+              </ol>
+            </details>
+
+          </article>
+        </section>
+
+        <!-- PHASE 2: SELECT -->
+        <section class="phase hidden" id="phase-select">
+          <div class="phase-head">
+            <h1>Select</h1>
+            <p>Load the file you exported, then choose exactly which contacts to migrate.</p>
+          </div>
+
+          <article class="card">
+            <div class="substep"><span class="substep-num">1</span> Sub‑step 1 of 2</div>
+            <h2><span class="tick" data-when="source"></span> Choose the exported file</h2>
+            <p class="muted">Pick the <code>.vcf</code> you exported in the Prepare step.</p>
+            <div class="row">
+              <button id="pickOld" class="secondary"><span class="spin"></span><span class="lbl">Choose exported .vcf…</span></button>
+              <span id="oldPath" class="path">No file chosen</span>
+            </div>
+            <div class="step-out hidden" id="out-old"><div class="st-head"><span class="st-icon"></span><span class="st-msg"></span></div><div class="st-lines"></div><div class="st-actions"></div></div>
+          </article>
+
+          <article class="card">
+            <div class="substep"><span class="substep-num">2</span> Sub‑step 2 of 2</div>
+            <h2><span class="tick" data-when="import"></span> Select which contacts to migrate</h2>
+            <p class="muted">vCards don't record which account owned a contact — filter by email/domain, name, org, or phone.</p>
+            <div class="filters">
+              <input id="filterText" type="text" placeholder="Search name, email, phone, org…" />
+              <input id="filterEmail" type="text" placeholder="Email contains (e.g. @oldco.com)" />
+            </div>
+            <div class="select-toolbar">
+              <button id="selAll" class="secondary tiny">Select all</button>
+              <button id="selNone" class="secondary tiny">Select none</button>
+              <button id="selFiltered" class="secondary tiny">Select shown</button>
+              <span id="selCount" class="muted">No file loaded yet.</span>
+            </div>
+            <div id="contactList" class="contact-list"><div class="cl-empty">Choose a .vcf above to list contacts here.</div></div>
+            <button id="useSelection" disabled><span class="spin"></span><span class="lbl">Use selected contacts</span></button>
+            <div class="step-out hidden" id="out-select"><div class="st-head"><span class="st-icon"></span><span class="st-msg"></span></div><div class="st-lines"></div><div class="st-actions"></div></div>
+          </article>
+        </section>
+
+        <!-- PHASE 2: MIGRATE -->
+        <section class="phase hidden" id="phase-migrate">
+          <div class="phase-head">
+            <h1>Migrate</h1>
+            <p>Back up everything, import your selection into the new account, and verify it arrived.</p>
+          </div>
+
+          <article class="card">
+            <h2><span class="tick" data-when="backup"></span> Back up</h2>
+            <p class="muted">Saves a copy of <b>all</b> exported contacts (CSV + lossless .vcf) to your Documents folder.</p>
+            <button id="backup" disabled><span class="spin"></span><span class="lbl">Create backup</span></button>
+            <div class="step-out hidden" id="out-backup"><div class="st-head"><span class="st-icon"></span><span class="st-msg"></span></div><div class="st-lines"></div><div class="st-actions"></div></div>
+          </article>
+
+          <article class="card" id="snapSection">
+            <h2><span class="tick" data-when="snapshot"></span> Snapshot current contacts <span class="mac-only pill">macOS</span></h2>
+            <p class="muted">Records the contacts already on this Mac so old copies can be removed precisely. macOS will ask permission the first time.</p>
+            <div class="row">
+              <button id="snapshot" disabled><span class="spin"></span><span class="lbl">Snapshot Contacts.app</span></button>
+              <button id="permHelp" class="secondary"><span class="lbl">Open Contacts permission settings</span></button>
+            </div>
+            <p class="hint">Blocked earlier? Click <b>Open Contacts permission settings</b>, enable this app under <b>Automation ▸ Contacts</b> (and <b>Privacy &amp; Security ▸ Contacts</b>), then click <b>Snapshot</b> again.</p>
+            <div class="step-out hidden" id="out-snapshot"><div class="st-head"><span class="st-icon"></span><span class="st-msg"></span></div><div class="st-lines"></div><div class="st-actions"></div></div>
+          </article>
+
+          <article class="card">
+            <h2><span class="tick" data-when="imported"></span> Import into your NEW account</h2>
+            <p class="muted">Put the <b>selected</b> contacts into the new account, using the file this app prepared:</p>
+            <p class="hint" id="importFile">Import file: <i>(complete the Select step first)</i></p>
+            <ol>
+              <li><b>System Settings ▸ Contacts ▸ Default Account</b> = your <b>new iCloud account</b>.</li>
+              <li>Open <b>Contacts</b> ▸ <b>File ▸ Import…</b> ▸ choose the import file above.</li>
+              <li>Wait for it to finish syncing to iCloud.</li>
+            </ol>
+            <p class="muted">Done importing? Confirm to unlock verification:</p>
+            <button id="confirmImport" class="secondary"><span class="spin"></span><span class="lbl">I've imported them — continue</span></button>
+            <div class="step-out hidden" id="out-import"><div class="st-head"><span class="st-icon"></span><span class="st-msg"></span></div><div class="st-lines"></div><div class="st-actions"></div></div>
+          </article>
+
+          <article class="card">
+            <h2><span class="tick" data-when="verify"></span> Verify everything arrived</h2>
+            <p class="muted">Export the <b>new</b> account to a fresh file and choose it — we confirm every selected contact is present before anything is deleted.</p>
+            <details>
+              <summary>How to export the new account</summary>
+              <ol>
+                <li>In <b>Contacts</b> (or iCloud.com on the new account) select the new account's contacts.</li>
+                <li><b>Edit ▸ Select All</b>, then <b>File ▸ Export ▸ Export vCard…</b>.</li>
+              </ol>
+            </details>
+            <div class="row">
+              <button id="pickNew" class="secondary"><span class="spin"></span><span class="lbl">Choose new export .vcf…</span></button>
+              <span id="newPath" class="path">No file chosen</span>
+            </div>
+            <button id="verify" disabled><span class="spin"></span><span class="lbl">Verify migration</span></button>
+            <div class="step-out hidden" id="out-verify"><div class="st-head"><span class="st-icon"></span><span class="st-msg"></span></div><div class="st-lines"></div><div class="st-actions"></div></div>
+          </article>
+        </section>
+
+        <!-- PHASE 3: FINISH -->
+        <section class="phase hidden" id="phase-finish">
+          <div class="phase-head">
+            <h1>Finish</h1>
+            <p>With a backup and a passing verification, remove the old copies.</p>
+          </div>
+
+          <article class="card">
+            <h2><span class="tick" data-when="delete"></span> Delete the old copies</h2>
+            <p class="muted">Locked until you have a backup <b>and</b> a passing verification. On macOS it removes only the pre‑import originals of the selected contacts (after you confirm). On Windows/Linux it shows manual steps.</p>
+            <button id="delete" class="danger" disabled><span class="spin"></span><span class="lbl">Delete old copies…</span></button>
+            <div class="step-out hidden" id="out-delete"><div class="st-head"><span class="st-icon"></span><span class="st-msg"></span></div><div class="st-lines"></div><div class="st-actions"></div></div>
+          </article>
+
+          <article class="card warn-card">
+            <h2>⚠️ Before changing phone sync — back up everything</h2>
+            <p>The next steps can <b>overwrite the contacts on your iPhone</b>. First make sure you have a safe copy of <b>every</b> contact list/account on the phone:</p>
+            <ol>
+              <li>Repeat the export in <b>Prepare</b> for <u>each</u> list/account (All Contacts, All iPhone, any work/other accounts).</li>
+              <li>Keep these <code>.vcf</code> files somewhere safe — and you already have this app's backup of what you migrated.</li>
+            </ol>
+            <p class="hint">Toggling iCloud Contacts off and choosing “Delete from My iPhone” removes them from the phone. Don't do it until your backups are confirmed.</p>
+          </article>
+
+          <article class="card">
+            <h2>Sync the new contacts to your iPhone</h2>
+            <p class="muted">Make the phone match what's now in the new iCloud account.</p>
+            <ol>
+              <li>On the iPhone: <b>Settings ▸ [your name] ▸ iCloud ▸ Contacts</b> = <b>On</b>, signed into the <b>new</b> account. Changes from the Mac sync automatically.</li>
+              <li><b>Remove the old account</b> so its copies leave the phone: <b>Settings ▸ Contacts ▸ Accounts ▸ [old Exchange account] ▸ Delete Account</b>.</li>
+            </ol>
+            <details>
+              <summary>Force the phone to match the desktop (desktop “overwrites” phone)</summary>
+              <ol>
+                <li><b>Confirm your backups first</b> (card above).</li>
+                <li>iPhone: <b>Settings ▸ [name] ▸ iCloud ▸ Contacts</b> → turn <b>Off</b> → choose <b>Delete from My iPhone</b>.</li>
+                <li>Turn <b>Contacts back On</b> → the phone re‑downloads from iCloud, which now matches your desktop.</li>
+              </ol>
+              <p class="hint">This replaces the phone's local contacts with the iCloud/desktop set — only safe once your backups exist.</p>
+            </details>
+          </article>
+
+          <article class="card done-card" id="doneCard">
+            <h2>🎉 All done</h2>
+            <p class="muted">Your selected contacts now live in the new account, you have a full backup, and the old copies are gone.</p>
+          </article>
+        </section>
+
       </div>
-      <button id="verify" disabled>Verify migration</button>
-      <div id="verifyResult" class="result hidden"></div>
-    </section>
 
-    <!-- Step 6 -->
-    <section class="step">
-      <h2><span class="num">6</span> Delete old copies</h2>
-      <p>Locked until you have a backup and a passing verification.</p>
-      <button id="delete" class="danger" disabled>Delete old copies…</button>
-      <div id="deleteResult" class="result hidden"></div>
-    </section>
-  </main>
+      <!-- Bottom nav -->
+      <div class="navbar">
+        <button id="backBtn" class="ghost" disabled>← Back</button>
+        <div class="nav-progress" id="navProgress"></div>
+        <button id="nextBtn" class="primary">Next →</button>
+      </div>
 
-  <footer>
-    <div id="log" class="log" aria-live="polite"></div>
-  </footer>
+      <!-- Bottom output terminal -->
+      <div class="log-wrap" id="logWrap">
+        <div class="log-bar">
+          <span class="log-title">Output terminal</span>
+          <div class="log-actions">
+            <button id="toggleLog" class="tiny">Hide</button>
+            <button id="clearLog" class="tiny">Clear</button>
+          </div>
+        </div>
+        <div id="log" class="log" aria-live="polite"></div>
+      </div>
+    </div>
+  </div>
 
   <!-- Confirm modal -->
   <div id="modal" class="modal hidden">
@@ -78,8 +273,8 @@
         <input id="confirmInput" type="text" autocomplete="off" />
       </label>
       <div class="modal-actions">
-        <button id="modalCancel">Cancel</button>
-        <button id="modalOk" class="danger" disabled>Delete</button>
+        <button id="modalCancel" class="secondary">Cancel</button>
+        <button id="modalOk" class="danger" disabled><span class="spin"></span><span class="lbl">Delete</span></button>
       </div>
     </div>
   </div>

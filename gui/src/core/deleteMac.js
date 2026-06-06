@@ -30,12 +30,12 @@ function runOsascript(script) {
   });
 }
 
-async function listPeople() {
-  if (!isMac()) throw new UnsupportedPlatform('listPeople is macOS-only');
-  const script = `
+// AppleScript that serializes a collection of people into RS/US-delimited text.
+function serializeScript(collection) {
+  return `
     set out to ""
     tell application "Contacts"
-      repeat with p in people
+      repeat with p in ${collection}
         set pid to id of p
         set pname to (name of p)
         if pname is missing value then set pname to ""
@@ -51,7 +51,9 @@ async function listPeople() {
       end repeat
     end tell
     return out`;
-  const raw = await runOsascript(script);
+}
+
+function parseRecords(raw) {
   const people = [];
   for (const rec of raw.split(RS)) {
     if (!rec.trim()) continue;
@@ -67,6 +69,29 @@ async function listPeople() {
       (gap ? emails : phones).push(chunk);
     }
     people.push({ id, name, phones, emails });
+  }
+  return people;
+}
+
+async function countPeople() {
+  const out = await runOsascript('tell application "Contacts" to count of people');
+  return parseInt(out || '0', 10);
+}
+
+// Read every contact in chunks so progress can be reported and the app never
+// appears hung on a large address book. `onProgress({pct, msg})` is optional.
+async function listPeople(onProgress) {
+  if (!isMac()) throw new UnsupportedPlatform('listPeople is macOS-only');
+  const total = await countPeople();
+  if (onProgress) onProgress({ pct: 0, msg: `Found ${total} contacts — reading…` });
+  if (!total) return [];
+  const CHUNK = 50;
+  const people = [];
+  for (let start = 1; start <= total; start += CHUNK) {
+    const end = Math.min(start + CHUNK - 1, total);
+    const raw = await runOsascript(serializeScript(`people ${start} thru ${end}`));
+    people.push(...parseRecords(raw));
+    if (onProgress) onProgress({ pct: end / total, msg: `Read ${end} of ${total} contacts…` });
   }
   return people;
 }
